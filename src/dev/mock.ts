@@ -30,6 +30,7 @@ export function mockBackend(): Backend {
     profile: null,
     engineActive: false,
     notifications: true,
+    afterVpn: true,
   };
   const statusHandlers: ((status: Status) => void)[] = [];
   const settingsHandlers: ((settings: Settings) => void)[] = [];
@@ -98,6 +99,9 @@ export function mockBackend(): Backend {
     },
     async setNotifications(enabled) {
       return update({ notifications: enabled });
+    },
+    async setAfterVpn(enabled) {
+      return update({ afterVpn: enabled });
     },
     async quit() {},
     async hide() {},

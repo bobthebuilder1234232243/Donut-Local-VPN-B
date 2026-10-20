@@ -4,6 +4,7 @@
 
 - Linux support with .deb and AppImage packages.
 - On Linux, FreeDPI sets the GNOME and KDE system proxy and shows the proxy address for other apps.
+- New After VPN setting: when a VPN or a network change breaks the connection, FreeDPI reconnects on its own once the VPN is turned off or the network changes again. On by default.
 
 ## 0.1.17
 

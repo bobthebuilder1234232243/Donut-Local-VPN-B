@@ -67,6 +67,11 @@ const ui = {
   notificationsLabel: byId("lbl-notify-toggle"),
   notificationsHint: byId("lbl-notifications-hint"),
   notifications: byId<HTMLInputElement>("chk-notifications"),
+  vpnTitle: byId("lbl-vpn"),
+  vpnValue: byId("val-vpn"),
+  vpnLabel: byId("lbl-vpn-toggle"),
+  vpnHint: byId("lbl-vpn-hint"),
+  vpn: byId<HTMLInputElement>("chk-vpn"),
 };
 
 function storedTheme(): Theme {
@@ -241,6 +246,11 @@ function renderSettings() {
   ui.regionHint.textContent = s.regionHint;
   ui.valRegion.textContent = s.regions[settings.region];
   choices(ui.region, REGIONS.map((id) => ({ id, label: s.regions[id] })), settings.region, (region) => void save({ region }));
+  ui.vpnTitle.textContent = s.afterVpn;
+  ui.vpnValue.textContent = settings.afterVpn ? s.on : s.off;
+  ui.vpnLabel.textContent = s.afterVpnToggle;
+  ui.vpnHint.textContent = s.afterVpnHint;
+  ui.vpn.checked = settings.afterVpn;
   ui.notificationsTitle.textContent = s.notifications;
   ui.notificationsValue.textContent = settings.notifications ? s.on : s.off;
   ui.notificationsLabel.textContent = s.notificationsToggle;
@@ -403,6 +413,10 @@ function bind() {
     }, 2500);
   });
   ui.selective.addEventListener("change", () => void save({ selective: ui.selective.checked }));
+  ui.vpn.addEventListener("change", async () => {
+    settings = await backend.setAfterVpn(ui.vpn.checked);
+    render();
+  });
   ui.notifications.addEventListener("change", async () => {
     settings = await backend.setNotifications(ui.notifications.checked);
     render();

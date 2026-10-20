@@ -125,6 +125,8 @@ Restart a browser after connecting if it was already open.
 
 **Help**, also under **Advanced**, has a button that copies diagnostics (version, settings, status and recent log lines, with no personal data) and a button that opens a new issue on GitHub.
 
+**After VPN** reconnects FreeDPI on its own when a VPN or another network change has broken the connection. As soon as the VPN is turned off or the network changes again, FreeDPI connects again without a click. It is on by default.
+
 **Notifications** turns the connect, disconnect and reconnect notifications on or off.
 
 **Language** switches between English, Turkish and Russian.

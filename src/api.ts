@@ -13,6 +13,7 @@ function tauriBackend(): Backend {
     setLanguage: (language) => invoke("set_language", { language }),
     setAutostart: (enabled) => invoke("set_autostart", { enabled }),
     setNotifications: (enabled) => invoke("set_notifications", { enabled }),
+    setAfterVpn: (enabled) => invoke("set_after_vpn", { enabled }),
     quit: () => invoke("quit"),
     hide: () => getCurrentWindow().hide(),
     onStatus: (handler) => {

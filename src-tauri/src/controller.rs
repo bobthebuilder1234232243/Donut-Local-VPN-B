@@ -75,6 +75,7 @@ pub struct Controller {
     failures: Mutex<u32>,
     demoted: Mutex<Option<String>>,
     recovering: Mutex<bool>,
+    wanted: Mutex<bool>,
 }
 
 const MAX_FAILURES: u32 = 2;
@@ -112,6 +113,7 @@ impl Controller {
             failures: Mutex::new(0),
             demoted: Mutex::new(None),
             recovering: Mutex::new(false),
+            wanted: Mutex::new(false),
         })
     }
 
@@ -185,6 +187,12 @@ impl Controller {
         }
     }
 
+    pub fn set_after_vpn(&self, enabled: bool) -> Settings {
+        let settings = self.update(|s| s.after_vpn = enabled);
+        self.publish();
+        settings
+    }
+
     pub fn set_notifications(&self, enabled: bool) -> Settings {
         let settings = self.update(|s| s.notifications = enabled);
         self.publish();
@@ -192,6 +200,7 @@ impl Controller {
     }
 
     pub async fn disconnect_by_user(&self) {
+        *lock(&self.wanted) = false;
         let was = self.status().phase;
         self.disconnect().await;
         if was == Phase::On {
@@ -217,6 +226,7 @@ impl Controller {
             *status = Status::connecting(0, 0);
         }
         *lock(&self.cancel) = Some(sender);
+        *lock(&self.wanted) = true;
         self.publish();
 
         let mut session = self.session.lock().await;
@@ -264,7 +274,14 @@ impl Controller {
     }
 
     pub async fn network_changed(&self) {
-        if self.status().phase != Phase::On {
+        let phase = self.status().phase;
+        if phase == Phase::Error && *lock(&self.wanted) && self.settings().after_vpn {
+            log::write("network changed after a failure, reconnecting");
+            *lock(&self.recovering) = true;
+            self.connect().await;
+            return;
+        }
+        if phase != Phase::On {
             return;
         }
         if let Some(running) = self.session.lock().await.as_mut() {

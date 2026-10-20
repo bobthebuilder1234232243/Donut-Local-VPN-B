@@ -18,6 +18,7 @@ pub struct Settings {
     pub profile: Option<String>,
     pub engine_active: bool,
     pub notifications: bool,
+    pub after_vpn: bool,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -42,6 +43,7 @@ impl Default for Settings {
             profile: None,
             engine_active: false,
             notifications: true,
+            after_vpn: true,
         }
     }
 }

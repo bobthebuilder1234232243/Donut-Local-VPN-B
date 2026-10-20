@@ -24,6 +24,7 @@ export interface Settings {
   profile: string | null;
   engineActive: boolean;
   notifications: boolean;
+  afterVpn: boolean;
 }
 
 export interface Preferences {
@@ -60,6 +61,7 @@ export interface Backend {
   setLanguage(language: Language): Promise<Settings>;
   setAutostart(enabled: boolean): Promise<Settings>;
   setNotifications(enabled: boolean): Promise<Settings>;
+  setAfterVpn(enabled: boolean): Promise<Settings>;
   quit(): Promise<void>;
   hide(): Promise<void>;
   onStatus(handler: (status: Status) => void): void;

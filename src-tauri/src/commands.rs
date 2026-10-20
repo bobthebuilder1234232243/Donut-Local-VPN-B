@@ -82,6 +82,11 @@ pub fn disconnect(controller: Ctl<'_>) {
 }
 
 #[tauri::command]
+pub fn set_after_vpn(enabled: bool, controller: Ctl<'_>) -> Settings {
+    controller.set_after_vpn(enabled)
+}
+
+#[tauri::command]
 pub fn set_notifications(enabled: bool, controller: Ctl<'_>) -> Settings {
     controller.set_notifications(enabled)
 }

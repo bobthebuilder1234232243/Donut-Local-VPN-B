@@ -61,6 +61,7 @@ fn main() {
             commands::set_language,
             commands::set_autostart,
             commands::set_notifications,
+            commands::set_after_vpn,
             commands::quit,
             commands::install_update,
             commands::open_discord,
