@@ -1,5 +1,5 @@
 use std::sync::{Arc, Mutex};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager};
@@ -7,7 +7,8 @@ use tauri_plugin_updater::{Update, UpdaterExt};
 
 use crate::controller::Controller;
 
-const INTERVAL: Duration = Duration::from_secs(6 * 60 * 60);
+const INTERVAL: Duration = Duration::from_secs(30 * 60);
+const MIN_GAP: Duration = Duration::from_secs(2 * 60);
 
 #[derive(Default)]
 pub struct Pending(Mutex<Option<Update>>);
@@ -34,7 +35,20 @@ pub fn watch(app: AppHandle) {
     });
 }
 
+pub fn check_soon(app: &AppHandle) {
+    let app = app.clone();
+    tauri::async_runtime::spawn(async move { check(&app).await });
+}
+
 async fn check(app: &AppHandle) {
+    {
+        static LAST: Mutex<Option<Instant>> = Mutex::new(None);
+        let mut last = LAST.lock().unwrap_or_else(|e| e.into_inner());
+        if last.is_some_and(|at| at.elapsed() < MIN_GAP) {
+            return;
+        }
+        *last = Some(Instant::now());
+    }
     let Ok(updater) = app.updater() else {
         return;
     };

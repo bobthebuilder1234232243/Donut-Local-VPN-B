@@ -39,7 +39,7 @@ You press one button. FreeDPI tries its built-in settings one by one, checks tha
 - **Start with system.** Optionally starts when you log in and connects on its own.
 - **Works for every site.** FreeDPI is not limited to a list. The test sites under Settings > Advanced are only used to check which setting works on your network, and you can add any domain as a test site.
 - **DNS protection.** Name lookups avoid your provider's DNS, so poisoned answers cannot redirect you to a block page.
-- **Automatic updates.** New versions are announced inside the app and install with one click. Every update is signed and verified before it is installed.
+- **Automatic updates.** FreeDPI checks for new versions every 30 minutes and whenever you open the window, announces them inside the app and installs them with one click. Every update is signed and verified before it is installed.
 - **Installer.** Start menu and desktop shortcuts on Windows, a standard app bundle on macOS, and a clean uninstaller.
 - **English, Turkish and Russian** interface, chosen automatically from your system language.
 - **Light and dark theme.** Follows your system setting by default, or pick one under Settings > Theme.
