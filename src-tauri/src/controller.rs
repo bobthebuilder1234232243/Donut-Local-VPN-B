@@ -80,6 +80,23 @@ pub struct Controller {
 
 const MAX_FAILURES: u32 = 2;
 
+/// Settings moved from `com.freedpi.desktop` to this app identifier. Keep a
+/// fresh install from losing the profile and preferences of an old install.
+fn settings_path(app: &AppHandle) -> tauri::Result<PathBuf> {
+    let directory = app.path().app_config_dir()?;
+    let path = directory.join("settings.json");
+    if !path.exists() {
+        if let Some(parent) = directory.parent() {
+            let legacy = parent.join("com.freedpi.desktop").join("settings.json");
+            if legacy.is_file() {
+                let _ = std::fs::create_dir_all(&directory);
+                let _ = std::fs::copy(&legacy, &path);
+            }
+        }
+    }
+    Ok(path)
+}
+
 fn lock<T>(mutex: &Mutex<T>) -> MutexGuard<'_, T> {
     mutex.lock().unwrap_or_else(|poisoned| poisoned.into_inner())
 }
@@ -93,7 +110,7 @@ async fn cancellable<F: Future>(cancel: &mut watch::Receiver<bool>, future: F) -
 
 impl Controller {
     pub fn new(app: &AppHandle) -> tauri::Result<Self> {
-        let path = app.path().app_config_dir()?.join("settings.json");
+        let path = settings_path(app)?;
         let mut settings = Settings::load(&path);
         if settings.engine_active {
             Engine::recover();
@@ -296,7 +313,7 @@ impl Controller {
         let settings = self.settings();
         let status = self.status();
         let mut out = vec![
-            format!("FreeDPI {}", env!("CARGO_PKG_VERSION")),
+            format!("Donut Local VPN {}", env!("CARGO_PKG_VERSION")),
             format!("os: {} {}", std::env::consts::OS, std::env::consts::ARCH),
             format!("region: {:?}", settings.region),
             format!("targets: {}", settings.targets.join(", ")),

@@ -20,9 +20,9 @@ fn state() -> &'static Mutex<Log> {
 
 pub fn init(dir: PathBuf) {
     let _ = fs::create_dir_all(&dir);
-    let path = dir.join("freedpi.log");
+    let path = dir.join("donut-local-vpn.log");
     if fs::metadata(&path).is_ok_and(|m| m.len() > MAX_FILE) {
-        let _ = fs::rename(&path, dir.join("freedpi.old.log"));
+        let _ = fs::rename(&path, dir.join("donut-local-vpn.old.log"));
     }
     state().lock().unwrap_or_else(|e| e.into_inner()).path = Some(path);
 }

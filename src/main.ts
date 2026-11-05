@@ -5,7 +5,7 @@ import type { Backend, Language, Preferences, Region, Settings, Snapshot, Status
 const REGIONS: Region[] = ["auto", "turkey", "russia", "other"];
 const THEMES = ["system", "light", "dark"] as const;
 type Theme = (typeof THEMES)[number];
-const THEME_KEY = "freedpi-theme";
+const THEME_KEY = "donut-local-vpn-theme";
 const CHECK_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg>';
 const REMOVE_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7l10 10M17 7L7 17" /></svg>';
 const DOMAIN = /^(?!-)[a-z0-9-]{1,63}(?<!-)(\.(?!-)[a-z0-9-]{1,63}(?<!-))+$/;
@@ -18,8 +18,6 @@ const ui = {
   title: byId("status-title"),
   detail: byId("status-detail"),
   profile: byId("status-profile"),
-  proxy: byId("status-proxy"),
-  discord: byId<HTMLButtonElement>("btn-discord"),
   autostartLabel: byId("lbl-autostart"),
   autostart: byId<HTMLInputElement>("chk-autostart"),
   openSettings: byId<HTMLButtonElement>("btn-settings"),
@@ -72,6 +70,8 @@ const ui = {
   vpnLabel: byId("lbl-vpn-toggle"),
   vpnHint: byId("lbl-vpn-hint"),
   vpn: byId<HTMLInputElement>("chk-vpn"),
+  aboutTitle: byId("lbl-about"),
+  aboutText: byId("lbl-about-text"),
 };
 
 function storedTheme(): Theme {
@@ -164,12 +164,6 @@ function renderStatus() {
   ui.power.disabled = status.phase === "stopping";
   ui.pending.hidden = !(status.phase === "on" || status.phase === "connecting");
 
-  const proxied = snapshot.platform === "macos" || snapshot.platform === "linux";
-  ui.discord.hidden = !(proxied && status.phase === "on" && settings.targets.includes("discord"));
-  const showProxy = snapshot.platform === "linux" && status.phase === "on" && !!status.port;
-  ui.proxy.hidden = !showProxy;
-  ui.proxy.textContent = showProxy ? format(s.proxyHint, { address: `127.0.0.1:${status.port}` }) : "";
-  ui.discord.textContent = s.openDiscord;
   ui.power.setAttribute("aria-busy", String(status.phase === "connecting" || status.phase === "stopping"));
 }
 
@@ -286,13 +280,15 @@ function renderSettings() {
   ui.addInput.placeholder = s.addPlaceholder;
   ui.addButton.title = s.addSite;
   ui.addButton.setAttribute("aria-label", s.addSite);
-  ui.version.textContent = `FreeDPI ${snapshot.version}`;
+  ui.version.textContent = `Donut Local VPN ${snapshot.version}`;
   ui.source.title = s.source;
   ui.quit.textContent = s.quit;
   ui.helpTitle.textContent = s.help;
   ui.helpHint.textContent = s.helpHint;
   if (!ui.diagnostics.classList.contains("done")) ui.diagnostics.textContent = s.copyDiagnostics;
   ui.report.textContent = s.reportIssue;
+  ui.aboutTitle.textContent = s.about;
+  ui.aboutText.textContent = s.aboutText;
 }
 
 function renderUpdate() {
@@ -374,16 +370,6 @@ function bind() {
   ui.power.addEventListener("click", () => {
     if (status.phase === "off" || status.phase === "error") void backend.connect();
     else if (status.phase === "connecting" || status.phase === "on") void backend.disconnect();
-  });
-
-  ui.discord.addEventListener("click", async () => {
-    ui.discord.disabled = true;
-    try {
-      await backend.openDiscord();
-    } catch {
-      flash(text().discordError);
-    }
-    ui.discord.disabled = false;
   });
 
   ui.autostart.addEventListener("change", async () => {

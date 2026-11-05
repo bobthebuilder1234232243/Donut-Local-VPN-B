@@ -115,15 +115,14 @@ export function mockBackend(): Backend {
       await new Promise((resolve) => window.setTimeout(resolve, 1500));
     },
     onUpdate() {},
-    async openDiscord() {},
     async reportIssue() {
-      window.open("https://github.com/hasanerman/FreeDPI/issues/new", "_blank");
+      window.open("https://github.com/bobthebuilder1234232243/Donut-Local-VPN-B/issues/new", "_blank");
     },
     async diagnostics() {
-      return `FreeDPI ${pkg.version}\nstatus: ${status.phase}`;
+      return `Donut Local VPN ${pkg.version}\nstatus: ${status.phase}`;
     },
     async openRepository() {
-      window.open("https://github.com/hasanerman/FreeDPI", "_blank");
+      window.open("https://github.com/bobthebuilder1234232243/Donut-Local-VPN-B", "_blank");
     },
   };
 }

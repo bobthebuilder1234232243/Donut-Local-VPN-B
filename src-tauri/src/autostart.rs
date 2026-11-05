@@ -6,12 +6,12 @@ mod platform {
 
     use crate::system::{output_text, run};
 
-    const TASK: &str = "FreeDPI";
+    const TASK: &str = "Donut Local VPN";
 
     const TEMPLATE: &str = r#"<?xml version="1.0" encoding="UTF-16"?>
 <Task version="1.2" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
   <RegistrationInfo>
-    <Description>FreeDPI</Description>
+    <Description>Donut Local VPN</Description>
   </RegistrationInfo>
   <Triggers>
     <LogonTrigger>
@@ -68,7 +68,7 @@ mod platform {
             .replace("{exe}", &escape(&exe.to_string_lossy()))
             .replace("{args}", super::TRAY_ARG);
 
-        let path = std::env::temp_dir().join("freedpi-task.xml");
+        let path = std::env::temp_dir().join("donut-local-vpn-task.xml");
         let mut bytes = vec![0xFF, 0xFE];
         for unit in xml.encode_utf16() {
             bytes.extend_from_slice(&unit.to_le_bytes());
@@ -95,7 +95,7 @@ mod platform {
     use std::fs;
     use std::path::PathBuf;
 
-    const LABEL: &str = "com.freedpi.desktop";
+    const LABEL: &str = "com.donutvpn.donutlocalvpn";
 
     fn plist_path() -> Option<PathBuf> {
         std::env::var_os("HOME").map(|home| {
@@ -158,7 +158,7 @@ mod platform {
         let config = std::env::var_os("XDG_CONFIG_HOME")
             .map(PathBuf::from)
             .or_else(|| std::env::var_os("HOME").map(|home| PathBuf::from(home).join(".config")))?;
-        Some(config.join("autostart").join("freedpi.desktop"))
+        Some(config.join("autostart").join("donut-local-vpn.desktop"))
     }
 
     pub fn enabled() -> bool {
@@ -179,7 +179,7 @@ mod platform {
         };
         let exe = exe.to_string_lossy().replace('"', "");
         let entry = format!(
-            "[Desktop Entry]\nType=Application\nName=FreeDPI\nExec=\"{exe}\" {arg}\nIcon=freedpi\nX-GNOME-Autostart-enabled=true\nTerminal=false\n",
+            "[Desktop Entry]\nType=Application\nName=Donut Local VPN\nExec=\"{exe}\" {arg}\nIcon=donut-local-vpn\nX-GNOME-Autostart-enabled=true\nTerminal=false\n",
             arg = super::TRAY_ARG,
         );
         if let Some(dir) = path.parent() {

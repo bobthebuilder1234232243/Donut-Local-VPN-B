@@ -44,14 +44,6 @@ pub fn diagnostics(controller: Ctl<'_>) -> String {
 }
 
 #[tauri::command]
-pub async fn open_discord(controller: Ctl<'_>) -> Result<(), String> {
-    let port = controller.proxy_port().await.ok_or("not_connected")?;
-    tokio::task::spawn_blocking(move || crate::apps::relaunch_discord(port))
-        .await
-        .map_err(|e| e.to_string())?
-}
-
-#[tauri::command]
 pub async fn install_update(app: AppHandle) -> Result<(), String> {
     updater::install(app).await
 }

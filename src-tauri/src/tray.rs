@@ -25,7 +25,7 @@ pub struct Tray {
 
 pub fn create(app: &AppHandle, settings: &Settings) -> tauri::Result<()> {
     let labels = i18n::labels(&settings.language);
-    let status = MenuItem::with_id(app, "status", format!("FreeDPI · {}", labels.off), false, None::<&str>)?;
+    let status = MenuItem::with_id(app, "status", format!("Donut Local VPN · {}", labels.off), false, None::<&str>)?;
     let toggle = MenuItem::with_id(app, "toggle", labels.connect, true, None::<&str>)?;
     let open = MenuItem::with_id(app, "open", labels.open, true, None::<&str>)?;
     let autostart = CheckMenuItem::with_id(app, "autostart", labels.autostart, true, settings.autostart, None::<&str>)?;
@@ -46,7 +46,7 @@ pub fn create(app: &AppHandle, settings: &Settings) -> tauri::Result<()> {
 
     let icon = TrayIconBuilder::with_id("main")
         .icon(Image::from_bytes(ICON_OFF)?)
-        .tooltip("FreeDPI")
+        .tooltip("Donut Local VPN")
         .menu(&menu)
         .show_menu_on_left_click(cfg!(target_os = "macos"))
         .on_menu_event(|app, event| handle_menu(app, event.id().as_ref()))
@@ -93,14 +93,14 @@ pub fn update(app: &AppHandle, status: &Status, settings: &Settings) {
     };
     let labels = i18n::labels(&settings.language);
     let phase = labels.phase(status.phase);
-    let _ = tray.status.set_text(format!("FreeDPI · {phase}"));
+    let _ = tray.status.set_text(format!("Donut Local VPN · {phase}"));
     let _ = tray.toggle.set_text(labels.action(status.phase));
     let _ = tray.toggle.set_enabled(status.phase != Phase::Stopping);
     let _ = tray.open.set_text(labels.open);
     let _ = tray.autostart.set_text(labels.autostart);
     let _ = tray.autostart.set_checked(settings.autostart);
     let _ = tray.quit.set_text(labels.quit);
-    let _ = tray.icon.set_tooltip(Some(format!("FreeDPI · {phase}")));
+    let _ = tray.icon.set_tooltip(Some(format!("Donut Local VPN · {phase}")));
     let bytes = match status.phase {
         Phase::On => ICON_ON,
         Phase::Connecting | Phase::Stopping => ICON_BUSY,

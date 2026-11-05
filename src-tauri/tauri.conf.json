@@ -1,8 +1,9 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "FreeDPI",
-  "version": "0.1.19",
-  "identifier": "com.freedpi.desktop",
+  "productName": "Donut Local VPN",
+  "mainBinaryName": "donut-local-vpn",
+  "version": "0.2.0",
+  "identifier": "com.donutvpn.donutlocalvpn",
   "build": {
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://localhost:1420",
@@ -13,7 +14,7 @@
     "windows": [
       {
         "label": "main",
-        "title": "FreeDPI",
+        "title": "Donut Local VPN",
         "width": 380,
         "height": 600,
         "resizable": false,
@@ -31,8 +32,10 @@
   },
   "plugins": {
     "updater": {
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDlENjlDQ0I4NjlDNUM0MDkKUldRSnhNVnB1TXhwblpab0MralJLRkY1SEoxWjVESC9GVGJyc2pFZmRNZkZnUEg0dGpHSmdnNUoK",
-      "endpoints": ["https://github.com/hasanerman/FreeDPI/releases/latest/download/latest.json"],
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEQzNjFFNDZBMjJBODI5RDQKUldUVUthZ2lhdVJoMDZEUjI2Vi9kWTZNSkFvcDVKNXNqTWJ0Vmc0RWE2eUNFRTBoZVVXTkNrQnoK",
+      "endpoints": [
+        "https://github.com/bobthebuilder1234232243/Donut-Local-VPN-B/releases/latest/download/latest.json"
+      ],
       "windows": {
         "installMode": "passive"
       }
@@ -49,11 +52,12 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
-    "publisher": "FreeDPI",
-    "copyright": "FreeDPI contributors. Licensed under GPL-3.0.",
+    "publisher": "Donut VPN",
+    "copyright": "© 2026 Donut VPN. Licensed under GPL-3.0.",
     "category": "Utility",
-    "shortDescription": "One-click DPI bypass",
-    "longDescription": "FreeDPI finds a working DPI bypass setting for your network with one click and keeps it running in the background.",
+    "shortDescription": "One-click DPI bypass with a local tunnel",
+    "longDescription": "Donut Local VPN finds a working DPI bypass setting for your network with one click. On Windows it filters packets with the WinDivert driver; on macOS and Linux it routes all traffic through a local TUN interface. There is no remote server and no account.",
+    "homepage": "https://techperson1234.github.io/Donut-VPN/",
     "license": "GPL-3.0-only",
     "licenseFile": "../LICENSE",
     "macOS": {

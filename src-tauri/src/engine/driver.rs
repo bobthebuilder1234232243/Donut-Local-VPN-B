@@ -63,7 +63,7 @@ impl Engine {
         let mut command = Command::new(&self.exe);
         command.args(profile.split_whitespace()).args(DNS);
         if let Some(domains) = only {
-            let list = std::env::temp_dir().join("freedpi-blacklist.txt");
+            let list = std::env::temp_dir().join("donut-local-vpn-blacklist.txt");
             std::fs::write(&list, domains.join("\n")).map_err(|e| EngineError::Failed(e.to_string()))?;
             command.arg("--blacklist").arg(list);
         }

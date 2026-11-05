@@ -1,8 +1,10 @@
 [package]
-name = "freedpi"
-version = "0.1.19"
-description = "One-click DPI bypass for Windows and macOS"
-authors = ["FreeDPI contributors"]
+name = "donut-local-vpn"
+version = "0.2.0"
+description = "One-click DPI bypass with a transparent local tunnel"
+authors = ["Donut VPN"]
+homepage = "https://techperson1234.github.io/Donut-VPN/"
+repository = "https://github.com/bobthebuilder1234232243/Donut-Local-VPN-B"
 license = "GPL-3.0-only"
 edition = "2021"
 rust-version = "1.85"
@@ -22,6 +24,12 @@ reqwest = { version = "0.13", default-features = false, features = ["rustls", "j
 
 [target.'cfg(windows)'.dependencies]
 windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_Security", "Win32_System_JobObjects", "Win32_System_Threading"] }
+
+[target.'cfg(not(windows))'.dependencies]
+tun = { version = "0.8", features = ["async"] }
+smoltcp = { version = "0.14", default-features = false, features = ["std", "medium-ip", "proto-ipv4", "proto-ipv6", "socket-tcp"] }
+socket2 = { version = "0.6", features = ["all"] }
+libc = "0.2"
 
 [profile.release]
 codegen-units = 1

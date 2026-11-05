@@ -21,7 +21,7 @@ pub async fn reachable(urls: &[String], proxy_port: Option<u16>) -> bool {
         .connect_timeout(Duration::from_secs(7))
         .redirect(reqwest::redirect::Policy::none())
         .pool_max_idle_per_host(0)
-        .user_agent(concat!("FreeDPI/", env!("CARGO_PKG_VERSION")));
+        .user_agent(concat!("DonutLocalVPN/", env!("CARGO_PKG_VERSION")));
 
     let builder = match proxy_port {
         Some(port) => match reqwest::Proxy::all(format!("http://127.0.0.1:{port}")) {

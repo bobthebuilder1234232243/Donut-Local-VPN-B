@@ -67,7 +67,6 @@ export interface Backend {
   onStatus(handler: (status: Status) => void): void;
   onSettings(handler: (settings: Settings) => void): void;
   installUpdate(): Promise<void>;
-  openDiscord(): Promise<void>;
   openRepository(): Promise<void>;
   reportIssue(): Promise<void>;
   diagnostics(): Promise<string>;

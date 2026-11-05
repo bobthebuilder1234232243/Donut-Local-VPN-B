@@ -2,6 +2,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use super::proxy::{Method, Resolver, Server};
+use super::tunnel::Tunnel;
 use super::EngineError;
 use crate::catalog::{self, Region};
 
@@ -10,13 +11,18 @@ pub struct Engine {
 }
 
 pub struct Running {
-    server: Server,
+    /// The unprivileged proxy used while the settings are being tested.
+    server: Option<Server>,
+    tunnel: Option<Tunnel>,
+    port: u16,
+    profile: String,
+    only: Option<Vec<String>>,
     active: bool,
 }
 
 impl Engine {
     pub fn new(_resources: PathBuf) -> Self {
-        Self { resolver: Arc::new(Resolver::new()) }
+        Self { resolver: Arc::new(Resolver::new(None)) }
     }
 
     pub fn profiles(region: Region) -> Vec<&'static str> {
@@ -24,8 +30,8 @@ impl Engine {
     }
 
     pub fn recover() {
-        #[cfg(any(target_os = "macos", target_os = "linux"))]
-        let _ = super::sysproxy::disable();
+        // The tunnel helper exits and restores the routes by itself when the app
+        // that started it goes away, so there is nothing to undo here.
     }
 
     pub fn unload() {}
@@ -35,11 +41,21 @@ impl Engine {
     }
 
     pub async fn start(&self, profile: &str, only: Option<&[String]>) -> Result<Running, EngineError> {
-        let method = Method::parse(profile).ok_or_else(|| EngineError::Failed(format!("invalid profile: {profile}")))?;
-        let server = Server::start(method, self.resolver.clone(), only.map(|d| Arc::new(d.to_vec())))
+        let method =
+            Method::parse(profile).ok_or_else(|| EngineError::Failed(format!("invalid profile: {profile}")))?;
+        let only = only.map(|domains| domains.to_vec());
+        let server = Server::start(method, self.resolver.clone(), only.clone().map(Arc::new), None)
             .await
-            .map_err(|e| EngineError::Failed(e.to_string()))?;
-        Ok(Running { server, active: false })
+            .map_err(|error| EngineError::Failed(error.to_string()))?;
+        let port = server.port();
+        Ok(Running {
+            server: Some(server),
+            tunnel: None,
+            port,
+            profile: profile.to_string(),
+            only,
+            active: false,
+        })
     }
 }
 
@@ -49,41 +65,39 @@ impl Running {
     }
 
     pub fn probe_proxy(&self) -> Option<u16> {
-        Some(self.server.port())
+        Some(self.port)
     }
 
+    /// Replace the temporary loopback proxy with the privileged tunnel. The
+    /// helper runs the same proxy with its outbound sockets bound to the
+    /// physical interface, so traffic can no longer loop back into the tunnel.
     pub async fn activate(&mut self) -> Result<(), EngineError> {
-        #[cfg(any(target_os = "macos", target_os = "linux"))]
-        {
-            let port = self.server.port();
-            tokio::task::spawn_blocking(move || super::sysproxy::enable(port))
-                .await
-                .map_err(|e| EngineError::Failed(e.to_string()))??;
-        }
+        drop(self.server.take());
+        let profile = self.profile.clone();
+        let only = self.only.clone().unwrap_or_default();
+        let mut tunnel = tokio::task::spawn_blocking(move || Tunnel::start(&profile, &only))
+            .await
+            .map_err(|error| EngineError::Failed(error.to_string()))??;
+        tunnel.up()?;
+        self.port = tunnel.port();
+        self.tunnel = Some(tunnel);
         self.active = true;
         Ok(())
     }
 
     pub async fn refresh(&mut self) -> Result<(), EngineError> {
-        #[cfg(any(target_os = "macos", target_os = "linux"))]
-        {
+        if let Some(tunnel) = &mut self.tunnel {
             if self.active {
-                let port = self.server.port();
-                tokio::task::spawn_blocking(move || super::sysproxy::enable(port))
-                    .await
-                    .map_err(|e| EngineError::Failed(e.to_string()))??;
+                tunnel.up()?;
             }
         }
         Ok(())
     }
 
-    pub async fn stop(self) {
-        #[cfg(any(target_os = "macos", target_os = "linux"))]
-        {
-            if self.active {
-                let _ = tokio::task::spawn_blocking(super::sysproxy::disable).await;
-            }
+    pub async fn stop(mut self) {
+        if let Some(tunnel) = self.tunnel.take() {
+            tunnel.stop().await;
         }
-        drop(self.server);
+        drop(self.server.take());
     }
 }

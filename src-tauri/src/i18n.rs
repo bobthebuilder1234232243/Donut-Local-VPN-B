@@ -29,15 +29,15 @@ const EN: Labels = Labels {
     connect: "Connect",
     disconnect: "Disconnect",
     cancel: "Cancel",
-    open: "Open FreeDPI",
+    open: "Open Donut Local VPN",
     autostart: "Start with system",
     quit: "Quit",
     lost: "The connection stopped working. Looking for another setting…",
     restored: "Connected again.",
-    failed: "Could not reconnect. Open FreeDPI to try again.",
-    connected: "Connected. Blocked sites should open now.",
+    failed: "Could not reconnect. Open Donut Local VPN to try again.",
+    connected: "Connected. All traffic is now routed through the local engine.",
     disconnected: "Disconnected.",
-    not_connected: "Could not connect. Open FreeDPI for details.",
+    not_connected: "Could not connect. Open Donut Local VPN for details.",
 };
 
 const TR: Labels = Labels {
@@ -49,15 +49,15 @@ const TR: Labels = Labels {
     connect: "Bağlan",
     disconnect: "Bağlantıyı kes",
     cancel: "İptal",
-    open: "FreeDPI'ı aç",
+    open: "Donut Local VPN uygulamasını aç",
     autostart: "Sistemle birlikte başlat",
     quit: "Çıkış",
     lost: "Bağlantı çalışmayı bıraktı. Başka bir ayar aranıyor…",
     restored: "Yeniden bağlandı.",
-    failed: "Yeniden bağlanılamadı. Tekrar denemek için FreeDPI'ı aç.",
-    connected: "Bağlandı. Engelli siteler artık açılır.",
+    failed: "Yeniden bağlanılamadı. Tekrar denemek için Donut Local VPN uygulamasını aç.",
+    connected: "Bağlandı. Tüm trafik artık yerel motordan geçiyor.",
     disconnected: "Bağlantı kesildi.",
-    not_connected: "Bağlanılamadı. Ayrıntılar için FreeDPI'ı aç.",
+    not_connected: "Bağlanılamadı. Ayrıntılar için Donut Local VPN uygulamasını aç.",
 };
 
 const RU: Labels = Labels {
@@ -69,15 +69,15 @@ const RU: Labels = Labels {
     connect: "Подключить",
     disconnect: "Отключить",
     cancel: "Отмена",
-    open: "Открыть FreeDPI",
+    open: "Открыть Donut Local VPN",
     autostart: "Запускать вместе с системой",
     quit: "Выход",
     lost: "Соединение перестало работать. Ищем другую настройку…",
     restored: "Снова подключено.",
-    failed: "Не удалось переподключиться. Откройте FreeDPI, чтобы попробовать снова.",
-    connected: "Подключено. Заблокированные сайты теперь открываются.",
+    failed: "Не удалось переподключиться. Откройте Donut Local VPN, чтобы попробовать снова.",
+    connected: "Подключено. Весь трафик теперь идёт через локальный движок.",
     disconnected: "Отключено.",
-    not_connected: "Не удалось подключиться. Подробности в FreeDPI.",
+    not_connected: "Не удалось подключиться. Подробности в Donut Local VPN.",
 };
 
 pub fn labels(language: &str) -> &'static Labels {

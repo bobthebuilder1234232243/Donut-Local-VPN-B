@@ -29,12 +29,19 @@ pub struct Resolver {
 }
 
 impl Resolver {
-    pub fn new() -> Self {
-        let client = reqwest::Client::builder()
+    /// `interface` pins DNS over HTTPS requests to the physical interface so
+    /// they do not travel through the tunnel they are helping to set up.
+    pub fn new(interface: Option<String>) -> Self {
+        let mut builder = reqwest::Client::builder()
             .no_proxy()
-            .timeout(Duration::from_secs(5))
-            .build()
-            .unwrap_or_default();
+            .timeout(Duration::from_secs(5));
+        #[cfg(unix)]
+        if let Some(interface) = interface {
+            builder = builder.interface(interface.as_str());
+        }
+        #[cfg(not(unix))]
+        let _ = interface;
+        let client = builder.build().unwrap_or_default();
         Self { client, cache: Mutex::new(HashMap::new()) }
     }
 
@@ -112,7 +119,7 @@ mod tests {
 
     #[tokio::test]
     async fn literal_addresses_skip_lookup() {
-        let resolver = Resolver::new();
+        let resolver = Resolver::new(None);
         assert_eq!(resolver.lookup("127.0.0.1").await.unwrap(), vec!["127.0.0.1".parse::<IpAddr>().unwrap()]);
         assert_eq!(resolver.lookup("[::1]").await.unwrap(), vec!["::1".parse::<IpAddr>().unwrap()]);
     }

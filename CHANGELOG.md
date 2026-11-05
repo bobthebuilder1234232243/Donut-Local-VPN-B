@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.2.0
+
+Donut Local VPN is the new name of this fork. It is not an update of FreeDPI: the signing key
+changed, so FreeDPI installs cannot auto-update and have to install this version by hand.
+
+- Renamed to Donut Local VPN everywhere: window, tray, notifications, installer and About screen.
+  New identifier `com.donutvpn.donutlocalvpn`, new icons and a new download page.
+- macOS and Linux now route all traffic through a local TUN interface instead of a system proxy.
+  Every app is covered; there is no proxy address to copy and no per-app configuration.
+- DNS inside the tunnel is answered with DNS over HTTPS on macOS and Linux.
+- Linux now requires root or `CAP_NET_ADMIN`; the app asks through `pkexec` or `sudo`.
+- macOS asks for the administrator password when you connect. The helper exits and restores the
+  original routes when you disconnect.
+- Removed the "Open Discord" button, the manual proxy address and the system-proxy instructions.
+- New update signing key and endpoint. Builds are signed in GitHub Actions; `latest.json` is
+  generated from the build matrix.
+- Windows is unchanged: same WinDivert driver and GoodbyeDPI engine.
+- Settings from the old `com.freedpi.desktop` folder are imported on first start.
+
 ## 0.1.19
 
 - Updates show up without restarting FreeDPI: it checks every 30 minutes and every time you open the window.

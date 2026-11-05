@@ -1,4 +1,4 @@
-!macro FREEDPI_STOP_ENGINE
+!macro DONUT_STOP_ENGINE
   nsExec::Exec 'taskkill /F /IM goodbyedpi.exe'
   nsExec::Exec 'sc stop WinDivert1.4'
   nsExec::Exec 'sc stop WinDivert'
@@ -6,10 +6,10 @@
 !macroend
 
 !macro NSIS_HOOK_PREINSTALL
-  !insertmacro FREEDPI_STOP_ENGINE
+  !insertmacro DONUT_STOP_ENGINE
 !macroend
 
 !macro NSIS_HOOK_PREUNINSTALL
-  nsExec::Exec 'schtasks /Delete /TN FreeDPI /F'
-  !insertmacro FREEDPI_STOP_ENGINE
+  nsExec::Exec 'schtasks /Delete /TN "Donut Local VPN" /F'
+  !insertmacro DONUT_STOP_ENGINE
 !macroend

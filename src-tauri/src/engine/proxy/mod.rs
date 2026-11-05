@@ -27,7 +27,12 @@ pub struct Server {
 }
 
 impl Server {
-    pub async fn start(method: Method, resolver: Arc<Resolver>, only: Option<Arc<Vec<String>>>) -> io::Result<Self> {
+    pub async fn start(
+        method: Method,
+        resolver: Arc<Resolver>,
+        only: Option<Arc<Vec<String>>>,
+        interface: Option<String>,
+    ) -> io::Result<Self> {
         let listener = match TcpListener::bind(SocketAddr::from(([127, 0, 0, 1], PREFERRED_PORT))).await {
             Ok(listener) => listener,
             Err(_) => TcpListener::bind(SocketAddr::from(([127, 0, 0, 1], 0))).await?,
@@ -41,8 +46,16 @@ impl Server {
                         let method = method.clone();
                         let resolver = resolver.clone();
                         let only = only.clone();
+                        let interface = interface.clone();
                         tokio::spawn(async move {
-                            let _ = serve(client, &method, &resolver, only.as_deref().map(Vec::as_slice)).await;
+                            let _ = serve(
+                                client,
+                                &method,
+                                &resolver,
+                                only.as_deref().map(Vec::as_slice),
+                                interface.as_deref(),
+                            )
+                            .await;
                         });
                     }
                     Err(_) => tokio::time::sleep(Duration::from_millis(50)).await,
@@ -68,7 +81,13 @@ enum Request {
     Forward { host: String, port: u16, head: Vec<u8> },
 }
 
-async fn serve(mut client: TcpStream, method: &Method, resolver: &Resolver, only: Option<&[String]>) -> io::Result<()> {
+async fn serve(
+    mut client: TcpStream,
+    method: &Method,
+    resolver: &Resolver,
+    only: Option<&[String]>,
+    interface: Option<&str>,
+) -> io::Result<()> {
     client.set_nodelay(true)?;
     let (head, body) = timeout(IO_TIMEOUT, read_head(&mut client))
         .await
@@ -77,7 +96,7 @@ async fn serve(mut client: TcpStream, method: &Method, resolver: &Resolver, only
 
     match request {
         Request::Connect { host, port } => {
-            let mut upstream = match connect(resolver, &host, port).await {
+            let mut upstream = match connect(resolver, &host, port, interface).await {
                 Ok(stream) => stream,
                 Err(e) => {
                     let _ = client.write_all(b"HTTP/1.1 502 Bad Gateway\r\nContent-Length: 0\r\n\r\n").await;
@@ -95,7 +114,7 @@ async fn serve(mut client: TcpStream, method: &Method, resolver: &Resolver, only
             tokio::io::copy_bidirectional(&mut client, &mut upstream).await?;
         }
         Request::Forward { host, port, head } => {
-            let mut upstream = connect(resolver, &host, port).await?;
+            let mut upstream = connect(resolver, &host, port, interface).await?;
             upstream.write_all(&head).await?;
             upstream.write_all(&body).await?;
             tokio::io::copy_bidirectional(&mut client, &mut upstream).await?;
@@ -192,10 +211,10 @@ fn split_host_port(value: &str, default: u16) -> Option<(String, u16)> {
     }
 }
 
-async fn connect(resolver: &Resolver, host: &str, port: u16) -> io::Result<TcpStream> {
+async fn connect(resolver: &Resolver, host: &str, port: u16, interface: Option<&str>) -> io::Result<TcpStream> {
     let mut last = io::Error::from(io::ErrorKind::NotFound);
     for ip in resolver.lookup(host).await? {
-        match timeout(CONNECT_TIMEOUT, TcpStream::connect((ip, port))).await {
+        match timeout(CONNECT_TIMEOUT, dial(ip, port, interface)).await {
             Ok(Ok(stream)) => {
                 stream.set_nodelay(true)?;
                 return Ok(stream);
@@ -205,6 +224,36 @@ async fn connect(resolver: &Resolver, host: &str, port: u16) -> io::Result<TcpSt
         }
     }
     Err(last)
+}
+
+/// Connect to a destination, optionally pinning the socket to a physical
+/// interface. The tunnel setup needs this: without it the proxy's own
+/// connections would be routed back into the TUN and loop forever.
+async fn dial(ip: std::net::IpAddr, port: u16, interface: Option<&str>) -> io::Result<TcpStream> {
+    #[cfg(unix)]
+    if let Some(interface) = interface {
+        use socket2::{Domain, Protocol, SockAddr, Socket, Type};
+
+        let domain = if ip.is_ipv4() { Domain::IPV4 } else { Domain::IPV6 };
+        let socket = Socket::new(domain, Type::STREAM, Some(Protocol::TCP))?;
+        socket.bind_device(Some(interface.as_bytes()))?;
+        socket.set_nonblocking(true)?;
+        match socket.connect(&SockAddr::from(SocketAddr::new(ip, port))) {
+            Ok(()) => {}
+            Err(error) if error.raw_os_error() == Some(libc::EINPROGRESS) => {}
+            Err(error) if error.kind() == io::ErrorKind::WouldBlock => {}
+            Err(error) => return Err(error),
+        }
+        let stream = TcpStream::from_std(std::net::TcpStream::from(socket))?;
+        stream.writable().await?;
+        if let Some(error) = stream.take_error()? {
+            return Err(error);
+        }
+        return Ok(stream);
+    }
+
+    let _ = interface;
+    TcpStream::connect((ip, port)).await
 }
 
 #[cfg(test)]
@@ -268,7 +317,7 @@ mod tests {
         });
 
         let method = Method::parse("tlsrec=sni+1 split=sni+3").unwrap();
-        let server = Server::start(method, Arc::new(Resolver::new()), None).await.unwrap();
+        let server = Server::start(method, Arc::new(Resolver::new(None)), None, None).await.unwrap();
         let mut client = TcpStream::connect(("127.0.0.1", server.port())).await.unwrap();
         client
             .write_all(format!("CONNECT 127.0.0.1:{upstream_port} HTTP/1.1\r\n\r\n").as_bytes())
@@ -292,7 +341,9 @@ mod tests {
     #[ignore]
     async fn serve_for_manual_testing() {
         let spec = std::env::var("FREEDPI_METHOD").unwrap_or_else(|_| "split=1".into());
-        let server = Server::start(Method::parse(&spec).unwrap(), Arc::new(Resolver::new()), None).await.unwrap();
+        let server = Server::start(Method::parse(&spec).unwrap(), Arc::new(Resolver::new(None)), None, None)
+            .await
+            .unwrap();
         eprintln!("listening on {} with {spec}", server.port());
         tokio::time::sleep(Duration::from_secs(90)).await;
     }
@@ -300,11 +351,13 @@ mod tests {
     #[tokio::test]
     #[ignore]
     async fn reaches_discord_through_proxy() {
-        let resolver = Arc::new(Resolver::new());
+        let resolver = Arc::new(Resolver::new(None));
         let urls = vec!["https://discord.com/api/v9/gateway".to_string()];
         let mut working = Vec::new();
         for profile in crate::catalog::proxy_profiles(crate::catalog::Region::Auto) {
-            let server = Server::start(Method::parse(profile).unwrap(), resolver.clone(), None).await.unwrap();
+            let server = Server::start(Method::parse(profile).unwrap(), resolver.clone(), None, None)
+                .await
+                .unwrap();
             let ok = crate::probe::reachable(&urls, Some(server.port())).await;
             eprintln!("{profile:<28} {}", if ok { "ok" } else { "blocked" });
             if ok {

@@ -1,7 +1,14 @@
 {
-  "name": "freedpi",
+  "name": "donut-local-vpn",
   "private": true,
-  "version": "0.1.19",
+  "version": "0.2.0",
+  "description": "One-click DPI bypass with a transparent local tunnel",
+  "author": "Donut VPN",
+  "homepage": "https://techperson1234.github.io/Donut-VPN/",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/bobthebuilder1234232243/Donut-Local-VPN-B"
+  },
   "license": "GPL-3.0-only",
   "type": "module",
   "scripts": {

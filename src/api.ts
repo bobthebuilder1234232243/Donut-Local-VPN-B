@@ -23,7 +23,6 @@ function tauriBackend(): Backend {
       void listen<Settings>("settings", (event) => handler(event.payload));
     },
     installUpdate: () => invoke("install_update"),
-    openDiscord: () => invoke("open_discord"),
     openRepository: () => invoke("open_repository"),
     reportIssue: () => invoke("report_issue"),
     diagnostics: () => invoke("diagnostics"),
@@ -41,5 +40,5 @@ export async function createBackend(): Promise<Backend> {
     const { mockBackend } = await import("./dev/mock");
     return mockBackend();
   }
-  throw new Error("FreeDPI must run inside the desktop app.");
+  throw new Error("Donut Local VPN must run inside the desktop app.");
 }

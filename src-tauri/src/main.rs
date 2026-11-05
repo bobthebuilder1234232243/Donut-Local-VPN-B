@@ -23,6 +23,11 @@ use tauri::{Manager, RunEvent, WindowEvent};
 use controller::Controller;
 
 fn main() {
+    #[cfg(not(windows))]
+    if std::env::args().any(|arg| arg == "--tunnel-helper") {
+        std::process::exit(engine::tunnel::run_helper());
+    }
+
     let start_in_tray = std::env::args().any(|arg| arg == autostart::TRAY_ARG);
 
     let app = tauri::Builder::default()
@@ -34,7 +39,7 @@ fn main() {
             if let Ok(dir) = app.path().app_log_dir() {
                 log::init(dir);
             }
-            log::write(format!("FreeDPI {} started on {}", env!("CARGO_PKG_VERSION"), std::env::consts::OS));
+            log::write(format!("Donut Local VPN {} started on {}", env!("CARGO_PKG_VERSION"), std::env::consts::OS));
             updater::watch(app.handle().clone());
             let controller = Arc::new(Controller::new(app.handle())?);
             tray::create(app.handle(), &controller.settings())?;
@@ -64,13 +69,12 @@ fn main() {
             commands::set_after_vpn,
             commands::quit,
             commands::install_update,
-            commands::open_discord,
             commands::open_repository,
             commands::report_issue,
             commands::diagnostics,
         ])
         .build(tauri::generate_context!())
-        .expect("failed to start FreeDPI");
+        .expect("failed to start Donut Local VPN");
 
     app.run(|app, event| match event {
         RunEvent::ExitRequested { api, code, .. } if code.is_none() => api.prevent_exit(),

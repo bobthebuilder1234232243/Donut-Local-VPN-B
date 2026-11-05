@@ -11,19 +11,14 @@ mod proxied;
 #[cfg(not(windows))]
 pub use proxied::{Engine, Running};
 
-#[cfg(target_os = "macos")]
-mod sysproxy;
-
-#[cfg(target_os = "linux")]
-#[path = "linuxproxy.rs"]
-mod sysproxy;
+#[cfg(not(windows))]
+pub mod tunnel;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum EngineError {
     MissingFiles,
     NeedsAdmin,
-    #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
-    SystemProxy,
+    Tunnel,
     NoProfile,
     Failed(String),
 }
@@ -33,7 +28,7 @@ impl EngineError {
         match self {
             EngineError::MissingFiles => "missing_files",
             EngineError::NeedsAdmin => "needs_admin",
-            EngineError::SystemProxy => "system_proxy",
+            EngineError::Tunnel => "tunnel",
             EngineError::NoProfile => "no_profile",
             EngineError::Failed(_) => "engine",
         }

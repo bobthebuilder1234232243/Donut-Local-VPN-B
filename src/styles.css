@@ -168,14 +168,17 @@ body.ready .app {
   width: 22px;
   height: 22px;
   border-radius: 6px;
-  background: linear-gradient(145deg, var(--green-light), var(--green-deep));
+  background: transparent;
 }
 
 .mark svg {
-  width: 18px;
-  height: 18px;
-  color: #fff;
-  stroke-width: 2.2;
+  width: 22px;
+  height: 22px;
+  stroke: none;
+}
+
+.about {
+  word-break: break-word;
 }
 
 .name {
