@@ -15,6 +15,7 @@ use std::io;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 #[cfg(unix)]
 use std::os::fd::AsRawFd;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -33,23 +34,69 @@ use super::dns;
 use crate::engine::proxy::Resolver;
 
 pub const MTU: usize = 1500;
-pub const CLIENT_ADDRESS: IpAddr = IpAddr::V4(Ipv4Addr::new(10, 66, 0, 1));
-pub const CLIENT_ADDRESS_V6: IpAddr = IpAddr::V6(Ipv6Addr::new(0xfd00, 0x66, 0, 0, 0, 0, 0, 1));
+pub const TUNNEL_ADDRESS_V6: IpAddr = IpAddr::V6(Ipv6Addr::new(0xfd00, 0x66, 0, 0, 0, 0, 0, 1));
 const STREAM_BUFFER: usize = 128 * 1024;
 const PENDING_LIMIT: usize = 256 * 1024;
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(8);
 const TICK: Duration = Duration::from_millis(2);
+
+/// Where DNS queries that arrive on the tunnel are answered from.
+#[derive(Clone)]
+pub enum DnsMode {
+    /// Answer locally from the DNS over HTTPS resolver.
+    Doh(Arc<Resolver>),
+    /// Forward the query unchanged to the system resolver through the
+    /// physical interface, used when the DPI bypass is off.
+    Forward(Option<String>),
+}
+
+/// Traffic counters shared by the stack and the privileged helper.
+#[derive(Default)]
+pub struct Counters {
+    up: AtomicU64,
+    down: AtomicU64,
+}
+
+impl Counters {
+    pub fn up(&self) -> u64 {
+        self.up.load(Ordering::Relaxed)
+    }
+
+    pub fn down(&self) -> u64 {
+        self.down.load(Ordering::Relaxed)
+    }
+
+    pub fn snapshot(&self) -> (u64, u64) {
+        (self.up(), self.down())
+    }
+
+    fn add_up(&self, bytes: usize) {
+        self.up.fetch_add(bytes as u64, Ordering::Relaxed);
+    }
+
+    fn add_down(&self, bytes: usize) {
+        self.down.fetch_add(bytes as u64, Ordering::Relaxed);
+    }
+}
 
 /// Create the TUN interface used for the tunnel.
 ///
 /// Linux uses a plain `donut0` interface with a /24 address. macOS uses an
 /// auto-numbered `utunN` point-to-point interface, so the peer address is set
 /// to the address the kernel sources packets from.
-pub fn create() -> io::Result<(tun::AsyncDevice, String)> {
+pub fn create(
+    tunnel: Ipv4Addr,
+    prefix: u8,
+    device: Ipv4Addr,
+) -> io::Result<(tun::AsyncDevice, String)> {
+    let [a, b, c, d] = tunnel.octets();
+    let [e, f, g, h] = device.octets();
+    let [i, j, k, l] = prefix_mask(prefix);
     let mut config = tun::Configuration::default();
     config
-        .address((10, 66, 0, 1))
-        .netmask((255, 255, 255, 0))
+        .address((a, b, c, d))
+        .destination((e, f, g, h))
+        .netmask((i, j, k, l))
         .mtu(MTU as u16)
         .up();
 
@@ -59,7 +106,7 @@ pub fn create() -> io::Result<(tun::AsyncDevice, String)> {
     });
 
     #[cfg(target_os = "macos")]
-    config.tun_name("utun").destination((10, 66, 0, 2));
+    config.tun_name("utun");
 
     let device = tun::create_as_async(&config).map_err(io::Error::other)?;
     let name = tun::AbstractDevice::tun_name(&*device)
@@ -67,12 +114,20 @@ pub fn create() -> io::Result<(tun::AsyncDevice, String)> {
     Ok((device, name))
 }
 
+fn prefix_mask(prefix: u8) -> [u8; 4] {
+    let bits = if prefix >= 32 { u32::MAX } else { u32::MAX << (32 - prefix) };
+    bits.to_be_bytes()
+}
+
 /// Run the stack until `stop` is signalled or the TUN device goes away.
 pub async fn run(
     device: tun::AsyncDevice,
     proxy_port: u16,
-    resolver: Arc<Resolver>,
+    tunnel: Ipv4Addr,
+    prefix: u8,
+    dns: DnsMode,
     mut stop: watch::Receiver<bool>,
+    counters: Arc<Counters>,
 ) {
     let (mut writer, mut reader) = match device.split() {
         Ok(parts) => parts,
@@ -80,7 +135,7 @@ pub async fn run(
     };
 
     let (inbound, mut packets) = mpsc::channel::<Vec<u8>>(2048);
-    tokio::spawn(async move {
+    let reader_task = tokio::spawn(async move {
         let mut buffer = vec![0u8; 65_536];
         loop {
             match reader.read(&mut buffer).await {
@@ -95,7 +150,7 @@ pub async fn run(
     });
 
     let (outbound, mut replies) = mpsc::channel::<Vec<u8>>(2048);
-    tokio::spawn(async move {
+    let writer_task = tokio::spawn(async move {
         while let Some(packet) = replies.recv().await {
             if writer.write_all(&packet).await.is_err() {
                 break;
@@ -103,7 +158,7 @@ pub async fn run(
         }
     });
 
-    let mut net = Net::new(proxy_port, resolver, outbound);
+    let mut net = Net::new(proxy_port, tunnel, prefix, dns, outbound, counters);
     let mut tick = tokio::time::interval(TICK);
     tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
 
@@ -129,6 +184,16 @@ pub async fn run(
         }
         net.service();
     }
+
+    // Closing both halves of the TUN device is part of a clean teardown: on
+    // Linux the kernel removes the interface when the last descriptor closes.
+    // The reader is blocked in `read`, so it has to be cancelled, not awaited.
+    drop(net);
+    drop(packets);
+    reader_task.abort();
+    writer_task.abort();
+    let _ = reader_task.await;
+    let _ = writer_task.await;
 }
 
 struct Listener {
@@ -166,29 +231,35 @@ struct Net {
     destinations: HashMap<(IpAddr, u16), IpAddr>,
     syns: HashMap<u16, usize>,
     proxy_port: u16,
-    resolver: Arc<Resolver>,
+    dns: DnsMode,
+    counters: Arc<Counters>,
     replies: mpsc::Sender<Vec<u8>>,
 }
 
 impl Net {
-    fn new(proxy_port: u16, resolver: Arc<Resolver>, replies: mpsc::Sender<Vec<u8>>) -> Self {
+    fn new(
+        proxy_port: u16,
+        tunnel: Ipv4Addr,
+        prefix: u8,
+        dns: DnsMode,
+        replies: mpsc::Sender<Vec<u8>>,
+        counters: Arc<Counters>,
+    ) -> Self {
         let mut device = TunDevice::new(MTU);
         let config = Config::new(HardwareAddress::Ip);
         let mut interface = Interface::new(config, &mut device, Instant::now());
+        let [a, b, c, d] = tunnel.octets();
         interface.update_ip_addrs(|addresses| {
-            let _ = addresses.push(IpCidr::new(IpAddress::from(CLIENT_ADDRESS), 24));
-            let _ = addresses.push(IpCidr::new(IpAddress::from(CLIENT_ADDRESS_V6), 64));
+            let _ = addresses.push(IpCidr::new(IpAddress::v4(a, b, c, d), prefix));
+            let _ = addresses.push(IpCidr::new(IpAddress::from(TUNNEL_ADDRESS_V6), 64));
         });
         // With AnyIP and a route whose gateway is one of our own addresses the
         // interface accepts packets for any destination. Replies still carry
         // the real destination address because the medium is raw IP.
         let _ = interface
             .routes_mut()
-            .add_default_ipv4_route(match CLIENT_ADDRESS {
-                IpAddr::V4(address) => Ipv4Address::from(address),
-                IpAddr::V6(_) => Ipv4Address::UNSPECIFIED,
-            });
-        if let IpAddr::V6(address) = CLIENT_ADDRESS_V6 {
+            .add_default_ipv4_route(Ipv4Address::from(tunnel));
+        if let IpAddr::V6(address) = TUNNEL_ADDRESS_V6 {
             let _ = interface.routes_mut().add_default_ipv6_route(Ipv6Address::from(address));
         }
         interface.set_any_ip(true);
@@ -202,7 +273,8 @@ impl Net {
             destinations: HashMap::new(),
             syns: HashMap::new(),
             proxy_port,
-            resolver,
+            dns,
+            counters,
             replies,
         }
     }
@@ -235,10 +307,16 @@ impl Net {
         };
         let query = query.to_vec();
         let replies = self.replies.clone();
-        let resolver = self.resolver.clone();
+        let mode = self.dns.clone();
         let meta = *meta;
         tokio::spawn(async move {
-            let Some(answer) = dns::respond(&resolver, &query).await else {
+            let answer = match mode {
+                DnsMode::Doh(resolver) => dns::respond(&resolver, &query).await,
+                DnsMode::Forward(interface) => {
+                    dns::forward(interface, SocketAddr::new(meta.dst, 53), &query).await
+                }
+            };
+            let Some(answer) = answer else {
                 return;
             };
             if let Some(packet) = dns::datagram(meta.dst, meta.src, 53, meta.src_port, &answer) {
@@ -282,7 +360,7 @@ impl Net {
             .poll(Instant::now(), &mut self.device, &mut self.sockets);
         self.accept();
         for flow in &mut self.flows {
-            service_flow(flow, &mut self.sockets);
+            service_flow(flow, &mut self.sockets, &self.counters);
         }
         self.reap();
         self.flush();
@@ -380,7 +458,7 @@ impl Net {
     }
 }
 
-fn service_flow(flow: &mut Flow, sockets: &mut SocketSet<'static>) {
+fn service_flow(flow: &mut Flow, sockets: &mut SocketSet<'static>, counters: &Counters) {
     if flow.upstream.is_none() {
         if let Some(receiver) = &mut flow.connecting {
             match receiver.try_recv() {
@@ -418,6 +496,7 @@ fn service_flow(flow: &mut Flow, sockets: &mut SocketSet<'static>) {
                 Ok(0) => break,
                 Ok(n) => {
                     flow.to_upstream.drain(..n);
+                    counters.add_up(n);
                 }
                 Err(error) if error.kind() == io::ErrorKind::WouldBlock => break,
                 Err(_) => {
@@ -436,6 +515,7 @@ fn service_flow(flow: &mut Flow, sockets: &mut SocketSet<'static>) {
                 }
                 Ok(n) => {
                     flow.to_client.extend_from_slice(&buffer[..n]);
+                    counters.add_down(n);
                     if flow.to_client.len() >= PENDING_LIMIT {
                         break;
                     }
@@ -755,7 +835,7 @@ mod tests {
         packet[4..6].copy_from_slice(&(20u16).to_be_bytes());
         packet[6] = PROTOCOL_TCP;
         packet[7] = 64;
-        packet[8..24].copy_from_slice(&CLIENT_ADDRESS_V6.to_string().parse::<Ipv6Addr>().unwrap().octets());
+        packet[8..24].copy_from_slice(&TUNNEL_ADDRESS_V6.to_string().parse::<Ipv6Addr>().unwrap().octets());
         packet[24..40].copy_from_slice(&"2606:4700::1111".parse::<Ipv6Addr>().unwrap().octets());
         packet[40..42].copy_from_slice(&50000u16.to_be_bytes());
         packet[42..44].copy_from_slice(&443u16.to_be_bytes());

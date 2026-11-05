@@ -1,0 +1,20 @@
+[package]
+name = "tunnel-harness"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+# This crate exists only so the TUN engine can be compiled and tested without
+# the Tauri GUI stack. It includes the real source files from ../src through
+# #[path] attributes; nothing is copied. CI runs its integration test in a
+# privileged container with NET_ADMIN and /dev/net/tun.
+
+[dependencies]
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "io-util", "time", "sync"] }
+tun = { version = "0.8", features = ["async"] }
+smoltcp = { version = "0.14", default-features = false, features = ["std", "medium-ip", "proto-ipv4", "proto-ipv6", "socket-tcp"] }
+socket2 = { version = "0.6", features = ["all"] }
+libc = "0.2"
+reqwest = { version = "0.13", default-features = false, features = ["rustls", "json"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"

@@ -1,4 +1,5 @@
 use std::future::Future;
+use std::net::Ipv4Addr;
 use std::path::PathBuf;
 use std::sync::{Mutex, MutexGuard};
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -9,13 +10,13 @@ use tokio::sync::{watch, Mutex as AsyncMutex};
 
 use crate::autostart;
 use crate::catalog;
-use crate::engine::{Engine, EngineError, Running};
+use crate::engine::{Engine, EngineError, Running, TunnelConfig};
 use crate::log;
 use crate::network;
 use crate::notify;
 use crate::i18n;
 use crate::probe;
-use crate::settings::{Preferences, Settings};
+use crate::settings::{self, Preferences, Settings};
 use crate::tray;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
@@ -50,8 +51,7 @@ impl Status {
     }
 
     fn on(profile: String, step: usize, total: usize, port: Option<u16>) -> Self {
-        let since = SystemTime::now().duration_since(UNIX_EPOCH).map_or(0, |d| d.as_millis() as u64);
-        Self { profile: Some(profile), step, total, since: Some(since), port, ..Self::new(Phase::On) }
+        Self { profile: Some(profile), step, total, since: Some(now_ms()), port, ..Self::new(Phase::On) }
     }
 
     fn failed(error: &EngineError) -> Self {
@@ -59,9 +59,26 @@ impl Status {
     }
 }
 
+/// Live values for the session details panel. All of them come from the
+/// running engine; the UI only formats them.
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SessionDetails {
+    pub tunnel_ip: Option<String>,
+    pub device_ip: Option<String>,
+    pub dpi: bool,
+    pub uptime_secs: u64,
+    pub bytes_up: Option<u64>,
+    pub bytes_down: Option<u64>,
+}
+
 enum Stop {
     Cancelled,
     Failed(EngineError),
+}
+
+fn now_ms() -> u64 {
+    SystemTime::now().duration_since(UNIX_EPOCH).map_or(0, |d| d.as_millis() as u64)
 }
 
 pub struct Controller {
@@ -159,12 +176,17 @@ impl Controller {
 
     fn set_status(&self, status: Status) {
         if status.phase != Phase::Connecting {
-            log::write(format!(
+            let line = format!(
                 "status {:?}{}{}",
                 status.phase,
                 status.profile.as_deref().map(|p| format!(" profile={p}")).unwrap_or_default(),
                 status.error.as_deref().map(|e| format!(" error={e}")).unwrap_or_default()
-            ));
+            );
+            if status.error.is_some() {
+                log::error(line);
+            } else {
+                log::write(line);
+            }
         }
         *lock(&self.status) = status;
         self.publish();
@@ -214,6 +236,66 @@ impl Controller {
         let settings = self.update(|s| s.notifications = enabled);
         self.publish();
         settings
+    }
+
+    pub fn set_auto_connect(&self, enabled: bool) -> Settings {
+        let settings = self.update(|s| s.auto_connect = enabled);
+        self.publish();
+        settings
+    }
+
+    pub fn set_dpi(&self, enabled: bool) -> Settings {
+        let settings = self.update(|s| s.dpi = enabled);
+        self.publish();
+        settings
+    }
+
+    /// Validate both addresses before saving. They are applied by the next
+    /// connection; the engine never reads a half-valid address from settings.
+    pub fn set_network(&self, tunnel_ip: &str, device_ip: &str) -> Result<Settings, String> {
+        let (tunnel, prefix) = settings::parse_ipv4_cidr(tunnel_ip)
+            .ok_or_else(|| "invalid tunnel address".to_string())?;
+        let (device, _) = settings::parse_ipv4_cidr(device_ip)
+            .ok_or_else(|| "invalid device address".to_string())?;
+        if prefix < 8 {
+            return Err("tunnel prefix must be at least /8".into());
+        }
+        if tunnel == device {
+            return Err("tunnel and device addresses must differ".into());
+        }
+        let tunnel = format!("{tunnel}/{prefix}");
+        let device = device.to_string();
+        Ok(self.update(|s| {
+            s.tunnel_ip = tunnel;
+            s.device_ip = device;
+        }))
+    }
+
+    pub async fn session_details(&self) -> Option<SessionDetails> {
+        let status = self.status();
+        if status.phase != Phase::On {
+            return None;
+        }
+        let since = status.since.unwrap_or_else(now_ms);
+        let mut session = self.session.lock().await;
+        let stats = session.as_mut()?.stats().await?;
+        Some(SessionDetails {
+            tunnel_ip: stats.tunnel_ip,
+            device_ip: stats.device_ip,
+            dpi: stats.dpi,
+            uptime_secs: now_ms().saturating_sub(since) / 1000,
+            bytes_up: stats.bytes_up,
+            bytes_down: stats.bytes_down,
+        })
+    }
+
+    fn tunnel_config(&self) -> TunnelConfig {
+        let s = self.settings();
+        let (tunnel, prefix) = settings::parse_ipv4_cidr(&s.tunnel_ip)
+            .unwrap_or((Ipv4Addr::new(10, 66, 0, 1), 24));
+        let (device, _) = settings::parse_ipv4_cidr(&s.device_ip)
+            .unwrap_or(Ipv4Addr::new(10, 66, 0, 2));
+        TunnelConfig { tunnel, prefix, device, dpi: s.dpi }
     }
 
     pub async fn disconnect_by_user(&self) {
@@ -303,7 +385,7 @@ impl Controller {
         }
         if let Some(running) = self.session.lock().await.as_mut() {
             if let Err(error) = running.refresh().await {
-                log::write(format!("refresh failed: {}", error.code()));
+                log::warn(format!("refresh failed: {}", error.code()));
             }
         }
         self.check(1).await;
@@ -320,11 +402,14 @@ impl Controller {
             format!("custom sites: {}", settings.custom.len()),
             format!("only test sites: {}", settings.selective),
             format!("autostart: {}", settings.autostart),
+            format!("auto connect: {}", settings.auto_connect),
+            format!("dpi bypass: {}", settings.dpi),
+            format!("tunnel: {} device: {}", settings.tunnel_ip, settings.device_ip),
             format!("status: {:?} profile={:?} error={:?}", status.phase, status.profile, status.error),
             format!("online: {}", network::online()),
             String::new(),
         ];
-        out.extend(log::recent());
+        out.extend(log::recent().into_iter().map(|entry| entry.line()));
         out.join("\n")
     }
 
@@ -349,7 +434,7 @@ impl Controller {
                 return;
             }
             *failures += 1;
-            log::write(format!("health check failed ({}/{limit})", *failures));
+            log::warn(format!("health check failed ({}/{limit})", *failures));
             if *failures < limit {
                 return;
             }
@@ -400,6 +485,7 @@ impl Controller {
         ));
         self.engine.prepare().await.map_err(Stop::Failed)?;
 
+        let config = self.tunnel_config();
         let total = profiles.len();
         for (index, profile) in profiles.into_iter().enumerate() {
             if *cancel.borrow() {
@@ -407,7 +493,7 @@ impl Controller {
             }
             self.set_status(Status::connecting(index + 1, total));
 
-            let mut running = match self.engine.start(&profile, only.as_deref()).await {
+            let mut running = match self.engine.start(&profile, only.as_deref(), config).await {
                 Ok(running) => running,
                 Err(error) if error.fatal() => return Err(Stop::Failed(error)),
                 Err(error) => {
@@ -430,7 +516,7 @@ impl Controller {
 
             if !reachable || *cancel.borrow() {
                 if !reachable {
-                    log::write(format!("setting {} did not work", index + 1));
+                    log::warn(format!("setting {} did not work", index + 1));
                 }
                 running.stop().await;
                 if *cancel.borrow() {

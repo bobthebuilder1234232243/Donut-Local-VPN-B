@@ -71,6 +71,14 @@
         <h1 class="status" id="status-title" aria-live="polite"></h1>
         <p class="detail" id="status-detail" aria-live="polite"></p>
         <p class="profile" id="status-profile"></p>
+        <section class="session" id="session" hidden>
+          <div class="session-item"><span id="lbl-session-tunnel"></span><strong id="val-session-tunnel">—</strong></div>
+          <div class="session-item"><span id="lbl-session-device"></span><strong id="val-session-device">—</strong></div>
+          <div class="session-item"><span id="lbl-session-dpi"></span><strong id="val-session-dpi">—</strong></div>
+          <div class="session-item"><span id="lbl-session-uptime"></span><strong id="val-session-uptime">—</strong></div>
+          <div class="session-item"><span id="lbl-session-upload"></span><strong id="val-session-upload">—</strong></div>
+          <div class="session-item"><span id="lbl-session-download"></span><strong id="val-session-download">—</strong></div>
+        </section>
       </main>
 
       <div class="update" id="update" hidden>
@@ -105,6 +113,54 @@
             <div class="acc-body">
               <p class="hint" id="lbl-region-hint"></p>
               <div class="options" id="region"></div>
+            </div>
+          </details>
+
+          <details class="acc" id="acc-dpi">
+            <summary>
+              <span id="lbl-dpi"></span>
+              <span class="val"><span id="val-dpi"></span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6" /></svg></span>
+            </summary>
+            <div class="acc-body">
+              <label class="toggle">
+                <span id="lbl-dpi-toggle"></span>
+                <input class="switch" id="chk-dpi" type="checkbox" />
+              </label>
+              <p class="hint" id="lbl-dpi-hint"></p>
+            </div>
+          </details>
+
+          <details class="acc" id="acc-network">
+            <summary>
+              <span id="lbl-network"></span>
+              <span class="val"><span id="val-network"></span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6" /></svg></span>
+            </summary>
+            <div class="acc-body">
+              <p class="hint" id="lbl-network-hint"></p>
+              <label class="field">
+                <span id="lbl-tunnel-ip"></span>
+                <input id="inp-tunnel-ip" type="text" spellcheck="false" autocomplete="off" />
+              </label>
+              <label class="field">
+                <span id="lbl-device-ip"></span>
+                <input id="inp-device-ip" type="text" spellcheck="false" autocomplete="off" />
+              </label>
+              <p class="field-error" id="lbl-network-error"></p>
+              <button class="tool" id="btn-network-apply" type="button"></button>
+            </div>
+          </details>
+
+          <details class="acc" id="acc-autoconnect">
+            <summary>
+              <span id="lbl-autoconnect"></span>
+              <span class="val"><span id="val-autoconnect"></span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6" /></svg></span>
+            </summary>
+            <div class="acc-body">
+              <label class="toggle">
+                <span id="lbl-autoconnect-toggle"></span>
+                <input class="switch" id="chk-autoconnect" type="checkbox" />
+              </label>
+              <p class="hint" id="lbl-autoconnect-hint"></p>
             </div>
           </details>
 
@@ -155,6 +211,23 @@
                 <input class="switch" id="chk-notifications" type="checkbox" />
               </label>
               <p class="hint" id="lbl-notifications-hint"></p>
+            </div>
+          </details>
+
+          <details class="acc" id="acc-logs">
+            <summary>
+              <span id="lbl-logs"></span>
+              <span class="val"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6" /></svg></span>
+            </summary>
+            <div class="acc-body">
+              <p class="hint" id="lbl-logs-hint"></p>
+              <div class="levels" id="log-levels"></div>
+              <div class="logs" id="log-list" role="log"></div>
+              <p class="hint" id="lbl-log-empty" hidden></p>
+              <div class="tools">
+                <button class="tool" id="btn-copy-logs" type="button"></button>
+                <button class="tool" id="btn-refresh-logs" type="button"></button>
+              </div>
             </div>
           </details>
 

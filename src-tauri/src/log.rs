@@ -5,12 +5,28 @@ use std::path::PathBuf;
 use std::sync::{Mutex, OnceLock};
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use serde::Serialize;
+
 const KEEP: usize = 300;
 const MAX_FILE: u64 = 512 * 1024;
 
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Entry {
+    pub time: String,
+    pub level: &'static str,
+    pub message: String,
+}
+
+impl Entry {
+    pub fn line(&self) -> String {
+        format!("{} {:<5} {}", self.time, self.level.to_ascii_uppercase(), self.message)
+    }
+}
+
 struct Log {
     path: Option<PathBuf>,
-    lines: VecDeque<String>,
+    lines: VecDeque<Entry>,
 }
 
 fn state() -> &'static Mutex<Log> {
@@ -28,21 +44,39 @@ pub fn init(dir: PathBuf) {
 }
 
 pub fn write(message: impl AsRef<str>) {
-    let line = format!("{} {}", timestamp(), message.as_ref());
+    push("info", message.as_ref());
+}
+
+pub fn warn(message: impl AsRef<str>) {
+    push("warn", message.as_ref());
+}
+
+pub fn error(message: impl AsRef<str>) {
+    push("error", message.as_ref());
+}
+
+fn push(level: &'static str, message: &str) {
+    let entry = Entry { time: timestamp(), level, message: message.to_string() };
     let mut log = state().lock().unwrap_or_else(|e| e.into_inner());
     if let Some(path) = &log.path {
         if let Ok(mut file) = OpenOptions::new().create(true).append(true).open(path) {
-            let _ = writeln!(file, "{line}");
+            let _ = writeln!(file, "{}", entry.line());
         }
     }
-    log.lines.push_back(line);
+    log.lines.push_back(entry);
     while log.lines.len() > KEEP {
         log.lines.pop_front();
     }
 }
 
-pub fn recent() -> Vec<String> {
-    state().lock().unwrap_or_else(|e| e.into_inner()).lines.iter().cloned().collect()
+pub fn recent() -> Vec<Entry> {
+    state()
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .lines
+        .iter()
+        .cloned()
+        .collect()
 }
 
 fn timestamp() -> String {
@@ -70,9 +104,20 @@ mod tests {
     use super::*;
 
     #[test]
-    fn keeps_recent_lines() {
+    fn keeps_recent_lines_with_levels() {
         write("hello");
-        assert!(recent().iter().any(|l| l.ends_with(" hello")));
+        warn("careful");
+        error("broken");
+        let entries = recent();
+        assert!(entries.iter().any(|e| e.message == "hello" && e.level == "info"));
+        assert!(entries.iter().any(|e| e.message == "careful" && e.level == "warn"));
+        assert!(entries.iter().any(|e| e.message == "broken" && e.level == "error"));
         assert_eq!(timestamp().len(), 20);
+    }
+
+    #[test]
+    fn entries_format_with_time_and_level() {
+        let entry = Entry { time: "2026-01-01 00:00:00Z".into(), level: "warn", message: "x".into() };
+        assert_eq!(entry.line(), "2026-01-01 00:00:00Z WARN  x");
     }
 }

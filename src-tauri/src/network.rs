@@ -43,10 +43,10 @@ pub fn watch(controller: Arc<Controller>) {
                 log::write("system woke from sleep");
             }
             if changed {
-                log::write(match current {
-                    Some(_) => "network changed",
-                    None => "network lost",
-                });
+                match current {
+                    Some(_) => log::write("network changed"),
+                    None => log::warn("network lost"),
+                }
             }
             if (woke || changed) && current.is_some() {
                 tokio::time::sleep(SETTLE).await;

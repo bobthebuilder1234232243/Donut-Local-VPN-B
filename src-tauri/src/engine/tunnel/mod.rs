@@ -13,8 +13,8 @@
 
 mod dns;
 mod helper;
-mod routes;
-mod stack;
+pub mod routes;
+pub mod stack;
 
 pub use helper::run as run_helper;
 
@@ -23,10 +23,11 @@ use std::net::{Shutdown, TcpListener, TcpStream};
 use std::process::{Child, Command, Stdio};
 use std::time::{Duration, Instant};
 
-use super::EngineError;
+use super::{EngineError, TunnelConfig};
 
 const START_TIMEOUT: Duration = Duration::from_secs(120);
 const READ_TIMEOUT: Duration = Duration::from_secs(25);
+const STATS_TIMEOUT: Duration = Duration::from_secs(3);
 
 pub struct Tunnel {
     child: Child,
@@ -36,9 +37,23 @@ pub struct Tunnel {
     name: String,
 }
 
+/// Live values reported by the helper for the session details panel.
+#[derive(Clone, Debug)]
+pub struct Stats {
+    pub tunnel: String,
+    pub device: String,
+    pub dpi: bool,
+    pub up: u64,
+    pub down: u64,
+}
+
 impl Tunnel {
     /// Start the privileged helper and wait until it is ready to be activated.
-    pub fn start(profile: &str, only: &[String]) -> Result<Self, EngineError> {
+    pub fn start(
+        profile: &str,
+        only: &[String],
+        config: TunnelConfig,
+    ) -> Result<Self, EngineError> {
         let listener = TcpListener::bind(("127.0.0.1", 0))
             .map_err(|error| EngineError::Failed(error.to_string()))?;
         listener
@@ -49,7 +64,7 @@ impl Tunnel {
             .map_err(|error| EngineError::Failed(error.to_string()))?
             .port();
         let token = token();
-        let arguments = arguments(control_port, &token, profile, only);
+        let arguments = arguments(control_port, &token, profile, only, config);
         let mut child = launch(&arguments)?;
 
         let started = Instant::now();
@@ -128,6 +143,35 @@ impl Tunnel {
         }
     }
 
+    /// Read the tunnel addresses, DPI state and byte counters from the helper.
+    /// The session lock serialises this with `up`, so the short reply cannot be
+    /// confused with another command's answer.
+    pub fn stats(&mut self) -> Option<Stats> {
+        self.control.set_read_timeout(Some(STATS_TIMEOUT)).ok()?;
+        let result = self.stats_inner();
+        let _ = self.control.set_read_timeout(Some(READ_TIMEOUT));
+        result
+    }
+
+    fn stats_inner(&mut self) -> Option<Stats> {
+        self.control.write_all(b"stats\n").ok()?;
+        let mut line = String::new();
+        if self.reader.read_line(&mut line).ok()? == 0 {
+            return None;
+        }
+        let mut parts = line.split_whitespace();
+        if parts.next() != Some("stats") {
+            return None;
+        }
+        Some(Stats {
+            tunnel: parts.next()?.to_string(),
+            device: parts.next()?.to_string(),
+            dpi: parts.next()? == "1",
+            up: parts.next()?.parse().ok()?,
+            down: parts.next()?.parse().ok()?,
+        })
+    }
+
     pub async fn stop(self) {
         let _ = tokio::task::spawn_blocking(move || drop(self)).await;
     }
@@ -159,7 +203,13 @@ fn read_line(reader: &mut BufReader<TcpStream>, line: &mut String) -> Result<(),
     Ok(())
 }
 
-fn arguments(control: u16, token: &str, profile: &str, only: &[String]) -> Vec<String> {
+fn arguments(
+    control: u16,
+    token: &str,
+    profile: &str,
+    only: &[String],
+    config: TunnelConfig,
+) -> Vec<String> {
     vec![
         "--tunnel-helper".into(),
         "--control".into(),
@@ -170,6 +220,12 @@ fn arguments(control: u16, token: &str, profile: &str, only: &[String]) -> Vec<S
         profile.into(),
         "--only".into(),
         serde_json::to_string(only).unwrap_or_else(|_| "[]".into()),
+        "--tunnel".into(),
+        format!("{}/{}", config.tunnel, config.prefix),
+        "--device".into(),
+        config.device.to_string(),
+        "--dpi".into(),
+        if config.dpi { "1" } else { "0" }.into(),
     ]
 }
 

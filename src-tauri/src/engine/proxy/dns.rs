@@ -23,8 +23,17 @@ struct Answer {
     data: String,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Mode {
+    /// Resolve over HTTPS, so the provider's resolver is never used.
+    Doh,
+    /// Resolve through the operating system, used when the DPI bypass is off.
+    System,
+}
+
 pub struct Resolver {
-    client: reqwest::Client,
+    client: Option<reqwest::Client>,
+    mode: Mode,
     cache: Mutex<HashMap<String, (Vec<IpAddr>, Instant)>>,
 }
 
@@ -35,14 +44,30 @@ impl Resolver {
         let mut builder = reqwest::Client::builder()
             .no_proxy()
             .timeout(Duration::from_secs(5));
-        #[cfg(unix)]
         if let Some(interface) = interface {
             builder = builder.interface(interface.as_str());
         }
-        #[cfg(not(unix))]
-        let _ = interface;
         let client = builder.build().unwrap_or_default();
-        Self { client, cache: Mutex::new(HashMap::new()) }
+        Self {
+            client: Some(client),
+            mode: Mode::Doh,
+            cache: Mutex::new(HashMap::new()),
+        }
+    }
+
+    /// Use the system resolver (the one in `/etc/resolv.conf` or the platform
+    /// equivalent). Name lookups follow the normal routing table, which the
+    /// tunnel forwards when the bypass is off.
+    pub fn system() -> Self {
+        Self {
+            client: None,
+            mode: Mode::System,
+            cache: Mutex::new(HashMap::new()),
+        }
+    }
+
+    pub fn uses_doh(&self) -> bool {
+        self.mode == Mode::Doh
     }
 
     pub async fn lookup(&self, host: &str) -> io::Result<Vec<IpAddr>> {
@@ -53,7 +78,7 @@ impl Resolver {
         if let Some(ips) = self.cached(&host) {
             return Ok(ips);
         }
-        if is_hostname(&host) {
+        if self.uses_doh() && is_hostname(&host) {
             for endpoint in ENDPOINTS {
                 if let Some(ips) = self.query(endpoint, &host).await {
                     if let Ok(mut cache) = self.cache.lock() {
@@ -82,6 +107,7 @@ impl Resolver {
     async fn query(&self, endpoint: &str, host: &str) -> Option<Vec<IpAddr>> {
         let reply: Reply = self
             .client
+            .as_ref()?
             .get(format!("{endpoint}?name={host}&type=A"))
             .header("accept", "application/dns-json")
             .send()
@@ -117,10 +143,24 @@ mod tests {
         assert!(!is_hostname(""));
     }
 
+    #[test]
+    fn dpi_mode_selects_the_resolver() {
+        assert!(Resolver::new(None).uses_doh());
+        assert!(!Resolver::system().uses_doh());
+    }
+
     #[tokio::test]
     async fn literal_addresses_skip_lookup() {
         let resolver = Resolver::new(None);
         assert_eq!(resolver.lookup("127.0.0.1").await.unwrap(), vec!["127.0.0.1".parse::<IpAddr>().unwrap()]);
         assert_eq!(resolver.lookup("[::1]").await.unwrap(), vec!["::1".parse::<IpAddr>().unwrap()]);
+    }
+
+    #[tokio::test]
+    async fn system_resolver_uses_the_host_resolver() {
+        let resolver = Resolver::system();
+        let ips = resolver.lookup("localhost").await.unwrap();
+        assert!(!ips.is_empty());
+        assert!(ips.iter().all(|ip| ip.is_loopback()));
     }
 }

@@ -2,7 +2,9 @@ export type Phase = "off" | "connecting" | "on" | "stopping" | "error";
 
 export type Region = "auto" | "turkey" | "russia" | "other";
 
-export type Language = "en" | "tr" | "ru";
+export type Language = "en" | "tr" | "ru" | "es" | "it" | "pl" | "ko" | "zh-TW" | "fr";
+
+export type LogLevel = "info" | "warn" | "error";
 
 export interface Status {
   phase: Phase;
@@ -12,6 +14,21 @@ export interface Status {
   error: string | null;
   since?: number | null;
   port?: number | null;
+}
+
+export interface SessionStats {
+  tunnelIp: string | null;
+  deviceIp: string | null;
+  dpi: boolean;
+  uptimeSecs: number;
+  bytesUp: number | null;
+  bytesDown: number | null;
+}
+
+export interface LogEntry {
+  time: string;
+  level: LogLevel;
+  message: string;
 }
 
 export interface Settings {
@@ -25,6 +42,10 @@ export interface Settings {
   engineActive: boolean;
   notifications: boolean;
   afterVpn: boolean;
+  autoConnect: boolean;
+  dpi: boolean;
+  tunnelIp: string;
+  deviceIp: string;
 }
 
 export interface Preferences {
@@ -62,6 +83,11 @@ export interface Backend {
   setAutostart(enabled: boolean): Promise<Settings>;
   setNotifications(enabled: boolean): Promise<Settings>;
   setAfterVpn(enabled: boolean): Promise<Settings>;
+  setAutoConnect(enabled: boolean): Promise<Settings>;
+  setDpi(enabled: boolean): Promise<Settings>;
+  setNetwork(tunnelIp: string, deviceIp: string): Promise<Settings>;
+  sessionStats(): Promise<SessionStats | null>;
+  logs(): Promise<LogEntry[]>;
   quit(): Promise<void>;
   hide(): Promise<void>;
   onStatus(handler: (status: Status) => void): void;

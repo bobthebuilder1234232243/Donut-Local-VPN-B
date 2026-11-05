@@ -45,10 +45,15 @@ fn main() {
             tray::create(app.handle(), &controller.settings())?;
             app.manage(controller.clone());
             network::watch(controller.clone());
-            if start_in_tray {
-                tauri::async_runtime::spawn(async move { controller.connect().await });
-            } else {
+            // Starting with the system only means "start hidden in the tray".
+            // Connecting on launch is a separate setting and also applies when
+            // the app was opened by hand.
+            let auto_connect = controller.settings().auto_connect;
+            if !start_in_tray {
                 tray::show_window(app.handle());
+            }
+            if auto_connect {
+                tauri::async_runtime::spawn(async move { controller.connect().await });
             }
             Ok(())
         })
@@ -67,6 +72,11 @@ fn main() {
             commands::set_autostart,
             commands::set_notifications,
             commands::set_after_vpn,
+            commands::set_auto_connect,
+            commands::set_dpi,
+            commands::set_network,
+            commands::session_stats,
+            commands::logs,
             commands::quit,
             commands::install_update,
             commands::open_repository,

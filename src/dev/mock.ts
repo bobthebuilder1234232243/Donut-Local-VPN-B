@@ -1,5 +1,5 @@
 import pkg from "../../package.json";
-import type { Backend, Phase, Settings, Status } from "../types";
+import type { Backend, LogEntry, Phase, SessionStats, Settings, Status } from "../types";
 
 const PROFILES = ["-5 --wrong-seq --reverse-frag", "-5 --set-ttl 5", "-5", "--set-ttl 3", "-9"];
 
@@ -14,6 +14,22 @@ function initialStatus(phase: string | null): Status {
     default:
       return { phase: "off", step: 0, total: 0, profile: null, error: null };
   }
+}
+
+function sampleLogs(status: Status): LogEntry[] {
+  const time = (offset: number) =>
+    new Date(Date.now() - offset).toISOString().replace("T", " ").replace(/\.\d+Z$/, "Z");
+  return [
+    { time: time(180000), level: "info", message: "Donut Local VPN 0.2.0 started on linux" },
+    { time: time(170000), level: "info", message: "search region=Auto targets=discord selective=false" },
+    { time: time(165000), level: "info", message: "status Connecting" },
+    { time: time(160000), level: "warn", message: "setting 1 did not work" },
+    { time: time(155000), level: "info", message: "status On profile=split=1 disorder=1" },
+    { time: time(90000), level: "warn", message: "health check failed (1/2)" },
+    { time: time(60000), level: "info", message: "network changed" },
+    { time: time(30000), level: "error", message: "status Error error=engine" },
+    { time: time(1000), level: "info", message: `status ${status.phase}` },
+  ];
 }
 
 export function mockBackend(): Backend {
@@ -31,6 +47,10 @@ export function mockBackend(): Backend {
     engineActive: false,
     notifications: true,
     afterVpn: true,
+    autoConnect: params.get("autoconnect") !== null,
+    dpi: params.get("dpi") !== "0",
+    tunnelIp: "10.66.0.1/24",
+    deviceIp: "10.66.0.2",
   };
   const statusHandlers: ((status: Status) => void)[] = [];
   const settingsHandlers: ((settings: Settings) => void)[] = [];
@@ -44,6 +64,18 @@ export function mockBackend(): Backend {
     settings = { ...settings, ...next };
     settingsHandlers.forEach((handler) => handler(settings));
     return settings;
+  };
+  const stats = (): SessionStats | null => {
+    if (status.phase !== "on") return null;
+    const seconds = Math.max(0, Math.floor((Date.now() - (status.since ?? Date.now())) / 1000));
+    return {
+      tunnelIp: settings.dpi ? settings.tunnelIp : settings.tunnelIp,
+      deviceIp: settings.deviceIp,
+      dpi: settings.dpi,
+      uptimeSecs: seconds,
+      bytesUp: seconds * 24000,
+      bytesDown: seconds * 96000,
+    };
   };
 
   return {
@@ -60,7 +92,7 @@ export function mockBackend(): Backend {
           { id: "roblox", name: "Roblox" },
           { id: "wattpad", name: "Wattpad" },
         ],
-        platform: params.get("platform") ?? "windows",
+        platform: params.get("platform") ?? "linux",
         version: pkg.version,
         update: params.get("update") !== null ? { version: "0.2.0", notes: "- Faster connection after sleep\n- Diagnostics button" } : null,
       };
@@ -102,6 +134,21 @@ export function mockBackend(): Backend {
     },
     async setAfterVpn(enabled) {
       return update({ afterVpn: enabled });
+    },
+    async setAutoConnect(enabled) {
+      return update({ autoConnect: enabled });
+    },
+    async setDpi(enabled) {
+      return update({ dpi: enabled });
+    },
+    async setNetwork(tunnelIp, deviceIp) {
+      return update({ tunnelIp, deviceIp });
+    },
+    async sessionStats() {
+      return stats();
+    },
+    async logs() {
+      return sampleLogs(status);
     },
     async quit() {},
     async hide() {},

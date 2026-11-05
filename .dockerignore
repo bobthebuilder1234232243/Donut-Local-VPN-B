@@ -1,0 +1,8 @@
+node_modules
+dist
+src-tauri/target
+src-tauri/tunnel-harness/target
+src-tauri/gen
+.tauri-signing
+third_party
+.git

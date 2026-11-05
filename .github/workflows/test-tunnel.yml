@@ -1,0 +1,56 @@
+name: Tunnel test
+
+# Builds the engine and runs a real TUN integration test in a privileged
+# container: TUN interface up, split routes installed, TCP relayed to the local
+# proxy without looping, DNS answered over DoH, then a clean teardown.
+#
+# The release workflow calls this workflow and depends on it, so no installers
+# are built unless the tunnel test is green.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  tunnel:
+    name: Real TUN integration test
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Make sure /dev/net/tun exists
+        run: |
+          sudo modprobe tun || true
+          if [ ! -e /dev/net/tun ]; then
+            sudo mkdir -p /dev/net
+            sudo mknod /dev/net/tun c 10 200
+            sudo chmod 666 /dev/net/tun
+          fi
+          ls -l /dev/net/tun
+
+      - name: Build the test image
+        run: docker build -f .github/tunnel-test/Dockerfile -t donut-tunnel-test .
+
+      - name: Run the tunnel test (DPI bypass on)
+        run: |
+          docker run --rm \
+            --cap-add=NET_ADMIN \
+            --device=/dev/net/tun \
+            -e DONUT_TEST_DPI=1 \
+            donut-tunnel-test \
+            timeout --signal=KILL 240 cargo test --release -- --nocapture --test-threads=1
+
+      - name: Run the tunnel test (DPI bypass off)
+        run: |
+          docker run --rm \
+            --cap-add=NET_ADMIN \
+            --device=/dev/net/tun \
+            -e DONUT_TEST_DPI=0 \
+            donut-tunnel-test \
+            timeout --signal=KILL 240 cargo test --release -- --nocapture --test-threads=1

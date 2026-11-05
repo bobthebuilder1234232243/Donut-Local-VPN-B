@@ -1,5 +1,27 @@
 # Changelog
 
+## Unreleased
+
+- New session details panel on the main screen while connected: tunnel IP, device IP, DPI bypass
+  state, session uptime and bytes sent and received, polled from the engine once a second.
+- New DPI bypass switch. On keeps TLS splitting and DNS over HTTPS; off forwards traffic
+  unchanged and uses the system DNS. The engine checks it on every connection and the Windows
+  driver always runs the bypass.
+- New Connect on launch setting, separate from Start with system.
+- The existing self-healing setting is now called Reconnect after network change and is
+  documented next to the other connection settings.
+- New editable Tunnel IP and Device IP settings (validated IPv4, optional prefix) applied on the
+  next connection. Still no remote server: the tunnel is local.
+- New connection log panel with info/warning/error filtering and a copy button. The log keeps
+  structured levels in memory and in the log file.
+- Added Spanish, Italian, Polish, Korean, Traditional Chinese and French. The app detects the
+  system locale and falls back to English; all UI strings, including the new settings, are
+  translated.
+- New CI job builds the engine and runs a real TUN integration test in a privileged container:
+  interface and routes come up, TCP is relayed without looping, DNS works over DoH, and the
+  teardown restores the network. It runs with the bypass on and off, and the release workflow now
+  depends on it.
+
 ## 0.2.0
 
 Donut Local VPN is the new name of this fork. It is not an update of FreeDPI: the signing key

@@ -1,6 +1,6 @@
 mod desync;
 mod dns;
-mod tls;
+pub mod tls;
 
 use std::io;
 use std::net::SocketAddr;
@@ -236,7 +236,7 @@ async fn dial(ip: std::net::IpAddr, port: u16, interface: Option<&str>) -> io::R
 
         let domain = if ip.is_ipv4() { Domain::IPV4 } else { Domain::IPV6 };
         let socket = Socket::new(domain, Type::STREAM, Some(Protocol::TCP))?;
-        socket.bind_device(Some(interface.as_bytes()))?;
+        crate::engine::bind_interface(&socket, interface, ip.is_ipv6())?;
         socket.set_nonblocking(true)?;
         match socket.connect(&SockAddr::from(SocketAddr::new(ip, port))) {
             Ok(()) => {}
@@ -335,6 +335,41 @@ mod tests {
         let received = server_side.await.unwrap();
         assert_eq!(received.len(), hello.len() + 5);
         assert_eq!(tls::record_len(&received), tls::sni_offset(&hello).map(|s| s + 1));
+    }
+
+    #[tokio::test]
+    async fn direct_mode_passes_the_hello_unchanged() {
+        let upstream = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let upstream_port = upstream.local_addr().unwrap().port();
+        let hello = tls::client_hello("discord.com");
+        let expected = hello.clone();
+
+        let server_side = tokio::spawn(async move {
+            let (mut socket, _) = upstream.accept().await.unwrap();
+            let mut received = vec![0u8; expected.len()];
+            socket.read_exact(&mut received).await.unwrap();
+            assert_eq!(received, expected);
+            let mut extra = [0u8; 1];
+            assert!(
+                timeout(Duration::from_millis(200), socket.read(&mut extra)).await.is_err(),
+                "direct mode wrote more than the original ClientHello"
+            );
+        });
+
+        let server = Server::start(Method::direct(), Arc::new(Resolver::new(None)), None, None)
+            .await
+            .unwrap();
+        let mut client = TcpStream::connect(("127.0.0.1", server.port())).await.unwrap();
+        client
+            .write_all(format!("CONNECT 127.0.0.1:{upstream_port} HTTP/1.1\r\n\r\n").as_bytes())
+            .await
+            .unwrap();
+        let mut reply = [0u8; 39];
+        client.read_exact(&mut reply).await.unwrap();
+        assert!(reply.starts_with(b"HTTP/1.1 200"));
+
+        client.write_all(&hello).await.unwrap();
+        server_side.await.unwrap();
     }
 
     #[tokio::test]

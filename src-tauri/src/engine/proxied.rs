@@ -3,7 +3,7 @@ use std::sync::Arc;
 
 use super::proxy::{Method, Resolver, Server};
 use super::tunnel::Tunnel;
-use super::EngineError;
+use super::{EngineError, SessionStats, TunnelConfig};
 use crate::catalog::{self, Region};
 
 pub struct Engine {
@@ -17,6 +17,7 @@ pub struct Running {
     port: u16,
     profile: String,
     only: Option<Vec<String>>,
+    config: TunnelConfig,
     active: bool,
 }
 
@@ -40,9 +41,18 @@ impl Engine {
         Ok(())
     }
 
-    pub async fn start(&self, profile: &str, only: Option<&[String]>) -> Result<Running, EngineError> {
-        let method =
-            Method::parse(profile).ok_or_else(|| EngineError::Failed(format!("invalid profile: {profile}")))?;
+    pub async fn start(
+        &self,
+        profile: &str,
+        only: Option<&[String]>,
+        config: TunnelConfig,
+    ) -> Result<Running, EngineError> {
+        let method = if config.dpi {
+            Method::parse(profile)
+                .ok_or_else(|| EngineError::Failed(format!("invalid profile: {profile}")))?
+        } else {
+            Method::direct()
+        };
         let only = only.map(|domains| domains.to_vec());
         let server = Server::start(method, self.resolver.clone(), only.clone().map(Arc::new), None)
             .await
@@ -54,6 +64,7 @@ impl Engine {
             port,
             profile: profile.to_string(),
             only,
+            config,
             active: false,
         })
     }
@@ -75,9 +86,11 @@ impl Running {
         drop(self.server.take());
         let profile = self.profile.clone();
         let only = self.only.clone().unwrap_or_default();
-        let mut tunnel = tokio::task::spawn_blocking(move || Tunnel::start(&profile, &only))
-            .await
-            .map_err(|error| EngineError::Failed(error.to_string()))??;
+        let config = self.config;
+        let mut tunnel =
+            tokio::task::spawn_blocking(move || Tunnel::start(&profile, &only, config))
+                .await
+                .map_err(|error| EngineError::Failed(error.to_string()))??;
         tunnel.up()?;
         self.port = tunnel.port();
         self.tunnel = Some(tunnel);
@@ -92,6 +105,20 @@ impl Running {
             }
         }
         Ok(())
+    }
+
+    /// Ask the helper for its live counters. The control socket is a plain
+    /// blocking socket, so the short round trip runs off the async workers.
+    pub async fn stats(&mut self) -> Option<SessionStats> {
+        let tunnel = self.tunnel.as_mut()?;
+        let stats = tokio::task::block_in_place(|| tunnel.stats())?;
+        Some(SessionStats {
+            tunnel_ip: Some(stats.tunnel),
+            device_ip: Some(stats.device),
+            dpi: stats.dpi,
+            bytes_up: Some(stats.up),
+            bytes_down: Some(stats.down),
+        })
     }
 
     pub async fn stop(mut self) {

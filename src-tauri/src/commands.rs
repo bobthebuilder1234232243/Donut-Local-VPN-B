@@ -4,7 +4,8 @@ use serde::Serialize;
 use tauri::{AppHandle, State};
 
 use crate::catalog;
-use crate::controller::{Controller, Status};
+use crate::controller::{Controller, SessionDetails, Status};
+use crate::log::Entry;
 use crate::settings::{Preferences, Settings};
 use crate::updater;
 
@@ -41,6 +42,16 @@ pub fn report_issue() -> Result<(), String> {
 #[tauri::command]
 pub fn diagnostics(controller: Ctl<'_>) -> String {
     controller.diagnostics()
+}
+
+#[tauri::command]
+pub fn logs() -> Vec<Entry> {
+    crate::log::recent()
+}
+
+#[tauri::command]
+pub async fn session_stats(controller: Ctl<'_>) -> Option<SessionDetails> {
+    controller.session_details().await
 }
 
 #[tauri::command]
@@ -81,6 +92,21 @@ pub fn set_after_vpn(enabled: bool, controller: Ctl<'_>) -> Settings {
 #[tauri::command]
 pub fn set_notifications(enabled: bool, controller: Ctl<'_>) -> Settings {
     controller.set_notifications(enabled)
+}
+
+#[tauri::command]
+pub fn set_auto_connect(enabled: bool, controller: Ctl<'_>) -> Settings {
+    controller.set_auto_connect(enabled)
+}
+
+#[tauri::command]
+pub fn set_dpi(enabled: bool, controller: Ctl<'_>) -> Settings {
+    controller.set_dpi(enabled)
+}
+
+#[tauri::command]
+pub fn set_network(tunnel_ip: String, device_ip: String, controller: Ctl<'_>) -> Result<Settings, String> {
+    controller.set_network(&tunnel_ip, &device_ip)
 }
 
 #[tauri::command]

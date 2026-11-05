@@ -12,8 +12,13 @@ env:
   NODE_VERSION: "22"
 
 jobs:
+  tunnel-test:
+    name: Tunnel integration test
+    uses: ./.github/workflows/test-tunnel.yml
+
   release:
     name: Draft release
+    needs: tunnel-test
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.version.outputs.version }}

@@ -40,6 +40,17 @@ impl Pos {
 }
 
 impl Method {
+    /// No evasion at all: bytes are forwarded exactly as they arrive. Used when
+    /// the DPI bypass is turned off in the settings.
+    pub fn direct() -> Self {
+        Self::default()
+    }
+
+    /// Whether this method changes the first packet at all.
+    pub fn evades(&self) -> bool {
+        self.record.is_some() || self.split.is_some() || self.disorder || !self.delay.is_zero()
+    }
+
     pub fn parse(spec: &str) -> Option<Self> {
         let mut method = Method::default();
         for token in spec.split_whitespace() {
@@ -122,6 +133,16 @@ mod tests {
         assert_eq!(m.split, Some(Pos::Sni(-2)));
         assert_eq!(m.delay, Duration::from_millis(50));
         assert_eq!(Method::parse("split=1").unwrap().split, Some(Pos::Fixed(1)));
+    }
+
+    #[test]
+    fn direct_mode_never_touches_the_hello() {
+        let hello = tls::client_hello("discord.com");
+        let method = Method::direct();
+        assert!(!method.evades());
+        let (out, at) = method.apply(&hello);
+        assert_eq!(out, hello);
+        assert_eq!(at, None);
     }
 
     #[test]

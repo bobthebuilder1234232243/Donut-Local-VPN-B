@@ -2,7 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 
-import type { Backend, Settings, Status, UpdateInfo } from "./types";
+import type { Backend, LogEntry, SessionStats, Settings, Status, UpdateInfo } from "./types";
 
 function tauriBackend(): Backend {
   return {
@@ -14,6 +14,11 @@ function tauriBackend(): Backend {
     setAutostart: (enabled) => invoke("set_autostart", { enabled }),
     setNotifications: (enabled) => invoke("set_notifications", { enabled }),
     setAfterVpn: (enabled) => invoke("set_after_vpn", { enabled }),
+    setAutoConnect: (enabled) => invoke("set_auto_connect", { enabled }),
+    setDpi: (enabled) => invoke("set_dpi", { enabled }),
+    setNetwork: (tunnelIp, deviceIp) => invoke("set_network", { tunnelIp, deviceIp }),
+    sessionStats: () => invoke<SessionStats | null>("session_stats"),
+    logs: () => invoke<LogEntry[]>("logs"),
     quit: () => invoke("quit"),
     hide: () => getCurrentWindow().hide(),
     onStatus: (handler) => {

@@ -64,7 +64,7 @@ On macOS and Linux the app creates a TUN interface owned by a short-lived helper
 app → utun / tun0 → local TCP stack → bypass engine → physical interface → site
 ```
 
-DNS queries that arrive on the tunnel are answered over HTTPS, so the resolver your provider gave you is not used while you are connected.
+With the DPI bypass on (the default), DNS queries that arrive on the tunnel are answered over HTTPS, so the resolver your provider gave you is not used while you are connected. With the bypass off, queries are forwarded unchanged to your system resolver instead.
 
 **Limitation on macOS and Linux:** the tunnel carries TCP and DNS (UDP port 53). Other UDP traffic — QUIC, some games and some voice chat — and ICMP are not tunnelled; browsers and most apps fall back to TCP automatically. Windows is not affected because it filters at the driver level.
 
@@ -103,9 +103,16 @@ The tray icon shows the state: grey when off, teal when connected, amber while s
 
 On macOS and Linux the connection is a real tunnel, so there is no proxy address to copy and no per-app configuration. On Windows the driver covers every app the same way.
 
+### Session details
+
+While connected, the main screen shows the live session: the tunnel address, the device address,
+whether the DPI bypass is on, how long the session has been up, and the bytes sent and received.
+The values are read from the running engine once a second — the panel does not estimate or cache
+them. It is hidden while disconnected.
+
 ### Self-healing
 
-While connected, the app checks the connection periodically. When it breaks — a VPN connects, Wi-Fi changes, the laptop wakes from sleep — it searches for a working setting again. With **Reconnect after VPN** on (the default), it waits for the interfering VPN to go away and then reconnects on its own.
+While connected, the app checks the connection periodically. When it breaks — a VPN connects, Wi-Fi changes, the laptop wakes from sleep — it searches for a working setting again. With **Reconnect after network change** on (the default), it waits for the interfering VPN or network change to go away and then reconnects on its own.
 
 ## Settings
 
@@ -115,10 +122,14 @@ While connected, the app checks the connection periodically. When it breaks — 
 | **Test sites** | The domains used to decide whether a setting works. The app works for every site; these are only the test targets. |
 | **Only test sites** | Applies the bypass only to the listed domains and leaves everything else untouched. Blocked sites that are not listed will not open. |
 | **Start with system** | Starts minimised in the tray when you log in. On Linux this writes `~/.config/autostart/donut-local-vpn.desktop`. |
-| **After VPN** | Reconnects after another VPN or a network change breaks the connection. |
+| **Connect on launch** | Connects as soon as the app starts, including when it started at login. Separate from **Start with system**, so you can launch it without connecting immediately. |
+| **DPI bypass** | On keeps TLS splitting and DNS over HTTPS. Off passes traffic through unchanged and uses the system DNS. The Windows driver always runs the bypass and cannot turn it off. |
+| **Tunnel IP / Device IP** | Advanced network addresses for the local tunnel (IPv4, the tunnel address may include a prefix such as `/24`). Validated before saving and applied on the next connection. There is no remote server address — the tunnel is local. |
+| **Reconnect after network change** | Reconnects after another VPN or a network change breaks the connection. |
+| **Connection logs** | Scrolling engine log with an info/warning/error filter and a copy button. Entries are also written to the log file. |
 | **Notifications** | Tells you when the app connects, disconnects or switches setting. |
 | **Theme** | System, light or dark. |
-| **Language** | English, Türkçe or Русский. The tray menu follows. |
+| **Language** | English, Türkçe, Русский, Español, Italiano, Polski, 한국어, 繁體中文 or Français. The app and the tray menu follow; the system locale is detected on first start and English is the fallback. |
 | **Advanced → Help** | Copies diagnostics for a bug report. |
 
 ## Updates
@@ -162,8 +173,26 @@ npm ci
 npm run tauri dev                    # development window with hot reload
 npm run tauri build                  # installers in src-tauri/target/release/bundle
 
-cd src-tauri && cargo test           # engine, tunnel and DNS unit tests
+cd src-tauri && cargo test           # app tests (needs the Tauri/GTK system libraries)
+cd src-tauri/tunnel-harness && cargo test --lib   # engine, tunnel and DNS tests, no GUI stack
 ```
+
+The privileged end-to-end test creates a real TUN interface, installs the split
+default routes, sends DNS and TCP through the tunnel and checks the teardown. It
+needs root, `NET_ADMIN` and `/dev/net/tun`, so run it in the container used by CI:
+
+```bash
+docker build -f .github/tunnel-test/Dockerfile -t donut-tunnel-test .
+docker run --rm --cap-add=NET_ADMIN --device=/dev/net/tun donut-tunnel-test
+
+# the same test with the DPI bypass off
+docker run --rm --cap-add=NET_ADMIN --device=/dev/net/tun \
+  -e DONUT_TEST_DPI=0 donut-tunnel-test
+```
+
+`.github/workflows/test-tunnel.yml` runs both modes on every push and pull request. The
+release workflow calls it and depends on it, so installers are only built when the
+tunnel test is green.
 
 To produce signed updater artifacts, set `TAURI_SIGNING_PRIVATE_KEY` and `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` before building. The public key lives in `src-tauri/tauri.conf.json`; the private key is never committed.
 
@@ -174,9 +203,11 @@ src/                     UI (TypeScript, no framework)
 src-tauri/src/engine/    DPI bypass engine and proxy
 src-tauri/src/engine/tunnel/   TUN interface, userspace TCP stack, DNS, routes, privileged helper
 src-tauri/src/           app lifecycle, tray, updater, settings
+src-tauri/tunnel-harness/  build/test the engine without the GUI stack, plus the privileged TUN test
 src-tauri/resources/     GoodbyeDPI and WinDivert binaries (Windows)
 third_party/             third-party notices
-.github/workflows/       release build, signing and update manifest
+.github/tunnel-test/     container image for the privileged TUN integration test
+.github/workflows/       release build, signing, update manifest and tunnel test
 ```
 
 ## Credits

@@ -6,6 +6,7 @@
 //! the TUN device, the userspace stack and the loopback proxy, and exits as
 //! soon as the unprivileged parent closes the control connection.
 
+use std::net::Ipv4Addr;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -13,7 +14,8 @@ use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::net::TcpStream;
 use tokio::sync::watch;
 
-use super::{routes, stack};
+use super::stack::{self, Counters, DnsMode};
+use super::routes;
 use crate::engine::proxy::{Method, Resolver, Server};
 
 struct Args {
@@ -21,6 +23,18 @@ struct Args {
     token: String,
     profile: String,
     only: Vec<String>,
+    tunnel: Ipv4Addr,
+    prefix: u8,
+    device: Ipv4Addr,
+    dpi: bool,
+}
+
+fn address(value: &str) -> Option<(Ipv4Addr, u8)> {
+    let (address, prefix) = match value.split_once('/') {
+        Some((address, prefix)) => (address.parse().ok()?, prefix.parse().ok()?),
+        None => (value.parse().ok()?, 24),
+    };
+    (prefix > 0 && prefix <= 32).then_some((address, prefix))
 }
 
 impl Args {
@@ -34,6 +48,8 @@ impl Args {
                 .and_then(|index| raw.get(index + 1))
                 .cloned()
         };
+        let (tunnel, prefix) = address(&value("--tunnel")?)?;
+        let (device, _) = address(&value("--device")?)?;
         Some(Self {
             control: value("--control")?.parse().ok()?,
             token: value("--token")?,
@@ -41,6 +57,10 @@ impl Args {
             only: value("--only")
                 .and_then(|only| serde_json::from_str(&only).ok())
                 .unwrap_or_default(),
+            tunnel,
+            prefix,
+            device,
+            dpi: value("--dpi").as_deref() != Some("0"),
         })
     }
 }
@@ -69,17 +89,42 @@ pub fn run() -> i32 {
 
 async fn serve(args: Args) -> Result<(), String> {
     let physical = routes::physical();
-    let resolver = Arc::new(Resolver::new(physical.interface.clone()));
-    let method = Method::parse(&args.profile).ok_or("invalid profile")?;
+    // With the bypass off, names are resolved by the system resolver instead of
+    // DNS over HTTPS, and TLS handshakes are forwarded untouched.
+    let resolver = if args.dpi {
+        Arc::new(Resolver::new(physical.interface.clone()))
+    } else {
+        Arc::new(Resolver::system())
+    };
+    let method = if args.dpi {
+        Method::parse(&args.profile).ok_or("invalid profile")?
+    } else {
+        Method::direct()
+    };
     let only = (!args.only.is_empty()).then(|| Arc::new(args.only.clone()));
     let server = Server::start(method, resolver.clone(), only, physical.interface.clone())
         .await
         .map_err(|error| error.to_string())?;
     let port = server.port();
 
-    let (device, name) = stack::create().map_err(|error| error.to_string())?;
+    let counters = Arc::new(Counters::default());
+    let (device, name) =
+        stack::create(args.tunnel, args.prefix, args.device).map_err(|error| error.to_string())?;
+    let dns = if args.dpi {
+        DnsMode::Doh(resolver.clone())
+    } else {
+        DnsMode::Forward(physical.interface.clone())
+    };
     let (stop, stopped) = watch::channel(false);
-    let stack = tokio::spawn(stack::run(device, port, resolver, stopped));
+    let stack = tokio::spawn(stack::run(
+        device,
+        port,
+        args.tunnel,
+        args.prefix,
+        dns,
+        stopped,
+        counters.clone(),
+    ));
 
     let control = TcpStream::connect(("127.0.0.1", args.control))
         .await
@@ -121,6 +166,15 @@ async fn serve(args: Args) -> Result<(), String> {
                         let _ = writer.write_all(format!("error {error}\n").as_bytes()).await;
                     }
                 }
+            }
+            "stats" => {
+                let (up, down) = counters.snapshot();
+                let dpi = u8::from(args.dpi);
+                let line = format!(
+                    "stats {}/{} {} {dpi} {up} {down}\n",
+                    args.tunnel, args.prefix, args.device
+                );
+                let _ = writer.write_all(line.as_bytes()).await;
             }
             "quit" | "down" => break Ok(()),
             "" => {}

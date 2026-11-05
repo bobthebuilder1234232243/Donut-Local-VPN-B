@@ -10,7 +10,7 @@ use windows_sys::Win32::System::JobObjects::{
     JOBOBJECT_EXTENDED_LIMIT_INFORMATION, JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE,
 };
 
-use super::EngineError;
+use super::{EngineError, SessionStats, TunnelConfig};
 use crate::catalog::{self, Region};
 use crate::system::{hide_window, run};
 
@@ -59,7 +59,12 @@ impl Engine {
         Ok(())
     }
 
-    pub async fn start(&self, profile: &str, only: Option<&[String]>) -> Result<Running, EngineError> {
+    pub async fn start(
+        &self,
+        profile: &str,
+        only: Option<&[String]>,
+        _config: TunnelConfig,
+    ) -> Result<Running, EngineError> {
         let mut command = Command::new(&self.exe);
         command.args(profile.split_whitespace()).args(DNS);
         if let Some(domains) = only {
@@ -92,6 +97,18 @@ impl Running {
 
     pub fn probe_proxy(&self) -> Option<u16> {
         None
+    }
+
+    /// The Windows driver does not expose per-session byte counters, so the
+    /// panel shows dashes for them; DPI filtering is always on with WinDivert.
+    pub async fn stats(&mut self) -> Option<SessionStats> {
+        Some(SessionStats {
+            tunnel_ip: None,
+            device_ip: None,
+            dpi: true,
+            bytes_up: None,
+            bytes_down: None,
+        })
     }
 
     pub async fn activate(&mut self) -> Result<(), EngineError> {

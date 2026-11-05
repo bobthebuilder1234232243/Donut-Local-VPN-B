@@ -1,10 +1,14 @@
 use std::fs;
 use std::io;
+use std::net::Ipv4Addr;
 use std::path::Path;
 
 use serde::{Deserialize, Serialize};
 
 use crate::catalog::{self, Region};
+
+pub const DEFAULT_TUNNEL_IP: &str = "10.66.0.1/24";
+pub const DEFAULT_DEVICE_IP: &str = "10.66.0.2";
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(default, rename_all = "camelCase")]
@@ -19,6 +23,10 @@ pub struct Settings {
     pub engine_active: bool,
     pub notifications: bool,
     pub after_vpn: bool,
+    pub auto_connect: bool,
+    pub dpi: bool,
+    pub tunnel_ip: String,
+    pub device_ip: String,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -44,8 +52,31 @@ impl Default for Settings {
             engine_active: false,
             notifications: true,
             after_vpn: true,
+            auto_connect: false,
+            dpi: true,
+            tunnel_ip: DEFAULT_TUNNEL_IP.into(),
+            device_ip: DEFAULT_DEVICE_IP.into(),
         }
     }
+}
+
+/// Accept `10.66.0.1`, `10.66.0.1/24` and their IPv6-free equivalents. A bare
+/// address uses /24, which is the default for the tunnel.
+pub fn parse_ipv4_cidr(input: &str) -> Option<(Ipv4Addr, u8)> {
+    let input = input.trim();
+    let (address, prefix) = match input.split_once('/') {
+        Some((address, prefix)) => (address.parse::<Ipv4Addr>().ok()?, prefix.parse::<u8>().ok()?),
+        None => (input.parse::<Ipv4Addr>().ok()?, 24),
+    };
+    if prefix == 0
+        || prefix > 32
+        || address.is_unspecified()
+        || address.is_multicast()
+        || address == Ipv4Addr::BROADCAST
+    {
+        return None;
+    }
+    Some((address, prefix))
 }
 
 impl Settings {
@@ -91,6 +122,22 @@ impl Settings {
             "tr"
         } else if lang.starts_with("ru") {
             "ru"
+        } else if lang.starts_with("es") {
+            "es"
+        } else if lang.starts_with("it") {
+            "it"
+        } else if lang.starts_with("pl") {
+            "pl"
+        } else if lang.starts_with("ko") {
+            "ko"
+        } else if lang.starts_with("fr") {
+            "fr"
+        } else if lang.starts_with("zh-tw")
+            || lang.starts_with("zh-hant")
+            || lang.starts_with("zh-hk")
+            || lang.starts_with("zh-mo")
+        {
+            "zh-TW"
         } else {
             "en"
         }
@@ -121,11 +168,30 @@ mod tests {
     #[test]
     fn language_is_normalized() {
         let mut settings = Settings::default();
-        settings.set_language("tr-TR");
-        assert_eq!(settings.language, "tr");
-        settings.set_language("ru-RU");
-        assert_eq!(settings.language, "ru");
-        settings.set_language("de-DE");
-        assert_eq!(settings.language, "en");
+        for (input, expected) in [
+            ("tr-TR", "tr"),
+            ("ru-RU", "ru"),
+            ("es-ES", "es"),
+            ("it-IT", "it"),
+            ("pl-PL", "pl"),
+            ("ko-KR", "ko"),
+            ("zh-TW", "zh-TW"),
+            ("zh-Hant-HK", "zh-TW"),
+            ("fr-FR", "fr"),
+            ("de-DE", "en"),
+            ("zh-CN", "en"),
+        ] {
+            settings.set_language(input);
+            assert_eq!(settings.language, expected, "{input}");
+        }
+    }
+
+    #[test]
+    fn tunnel_addresses_are_validated() {
+        assert_eq!(parse_ipv4_cidr("10.66.0.1"), Some(("10.66.0.1".parse().unwrap(), 24)));
+        assert_eq!(parse_ipv4_cidr(" 10.66.0.1/30 "), Some(("10.66.0.1".parse().unwrap(), 30)));
+        for invalid in ["", "10.66.0", "10.66.0.256", "0.0.0.0", "10.66.0.1/0", "10.66.0.1/33", "::1", "10.66.0.1/x"] {
+            assert_eq!(parse_ipv4_cidr(invalid), None, "{invalid}");
+        }
     }
 }

@@ -1,14 +1,20 @@
-//! Answers DNS queries that arrive through the TUN interface from the same DNS
-//! over HTTPS resolver the proxy engine uses, so DNS is filtered the same way
-//! no matter which resolver the system is configured with.
+//! Answers DNS queries that arrive through the TUN interface.
+//!
+//! With the DPI bypass on, answers come from the same DNS over HTTPS resolver
+//! the proxy engine uses, so name lookups cannot leak to the provider even when
+//! the system resolver is unchanged. With the bypass off, queries are forwarded
+//! unchanged to the system resolver through the physical interface, which is
+//! what "system DNS" means in the settings.
 
-use std::net::IpAddr;
+use std::net::{IpAddr, SocketAddr};
+use std::time::Duration;
 
 use smoltcp::phy::ChecksumCapabilities;
 use smoltcp::wire::{
     IpAddress, IpProtocol, Ipv4Address, Ipv4Packet, Ipv4Repr, Ipv6Address, Ipv6Packet, Ipv6Repr,
     UdpPacket, UdpRepr,
 };
+use socket2::{Domain, Protocol, Socket, Type};
 
 use crate::engine::proxy::Resolver;
 
@@ -18,6 +24,7 @@ const TYPE_AAAA: u16 = 28;
 const CLASS_IN: u16 = 1;
 const MAX_ANSWERS: usize = 16;
 const TTL: u32 = 60;
+const FORWARD_TIMEOUT: Duration = Duration::from_secs(3);
 
 struct Question {
     id: u16,
@@ -46,6 +53,32 @@ pub async fn respond(resolver: &Resolver, query: &[u8]) -> Option<Vec<u8>> {
     } else {
         Some(answer(query, &question, &[], 0))
     }
+}
+
+/// Send a raw DNS query to the system resolver through the physical interface.
+/// This keeps DNS working while the tunnel owns the default route.
+pub async fn forward(
+    interface: Option<String>,
+    destination: SocketAddr,
+    query: &[u8],
+) -> Option<Vec<u8>> {
+    let domain = if destination.is_ipv4() { Domain::IPV4 } else { Domain::IPV6 };
+    let socket = Socket::new(domain, Type::DGRAM, Some(Protocol::UDP)).ok()?;
+    if let Some(interface) = interface.as_deref() {
+        crate::engine::bind_interface(&socket, interface, destination.is_ipv6()).ok()?;
+    }
+    socket.set_nonblocking(true).ok()?;
+    let socket: std::net::UdpSocket = socket.into();
+    let socket = tokio::net::UdpSocket::from_std(socket).ok()?;
+    socket.connect(destination).await.ok()?;
+    socket.send(query).await.ok()?;
+    let mut buffer = vec![0u8; 4096];
+    let read = tokio::time::timeout(FORWARD_TIMEOUT, socket.recv(&mut buffer))
+        .await
+        .ok()?
+        .ok()?;
+    buffer.truncate(read);
+    Some(buffer)
 }
 
 fn answer(query: &[u8], question: &Question, addresses: &[IpAddr], rcode: u8) -> Vec<u8> {
