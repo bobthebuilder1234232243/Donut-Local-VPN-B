@@ -157,9 +157,11 @@ async fn tunnel_carries_real_traffic_and_tears_down_cleanly() {
 
     routes::enable(&name).expect("enable routes");
 
+    // Linux shows a point-to-point interface as `10.66.0.1 peer 10.66.0.2/32`,
+    // so only the address itself is stable across `ip` versions.
     let links = output("ip", &["-4", "addr", "show", "dev", &name]);
     assert!(
-        links.contains("10.66.0.1/24"),
+        links.contains("10.66.0.1"),
         "the TUN interface has no address:\n{links}"
     );
 
