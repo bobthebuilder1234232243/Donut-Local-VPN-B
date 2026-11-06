@@ -293,7 +293,8 @@ impl Controller {
         let s = self.settings();
         let (tunnel, prefix) = settings::parse_ipv4_cidr(&s.tunnel_ip)
             .unwrap_or((Ipv4Addr::new(10, 66, 0, 1), 24));
-        let (device, _) = settings::parse_ipv4_cidr(&s.device_ip)
+        let device = settings::parse_ipv4_cidr(&s.device_ip)
+            .map(|(device, _)| device)
             .unwrap_or(Ipv4Addr::new(10, 66, 0, 2));
         TunnelConfig { tunnel, prefix, device, dpi: s.dpi }
     }

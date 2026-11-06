@@ -44,9 +44,14 @@ impl Resolver {
         let mut builder = reqwest::Client::builder()
             .no_proxy()
             .timeout(Duration::from_secs(5));
+        // `ClientBuilder::interface` only exists on Unix; Windows uses the
+        // system resolver and cannot pin a socket to an adapter here.
+        #[cfg(unix)]
         if let Some(interface) = interface {
             builder = builder.interface(interface.as_str());
         }
+        #[cfg(not(unix))]
+        let _ = interface;
         let client = builder.build().unwrap_or_default();
         Self {
             client: Some(client),

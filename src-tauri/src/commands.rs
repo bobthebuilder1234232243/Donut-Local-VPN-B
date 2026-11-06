@@ -50,8 +50,8 @@ pub fn logs() -> Vec<Entry> {
 }
 
 #[tauri::command]
-pub async fn session_stats(controller: Ctl<'_>) -> Option<SessionDetails> {
-    controller.session_details().await
+pub async fn session_stats(controller: Ctl<'_>) -> Result<Option<SessionDetails>, String> {
+    Ok(controller.session_details().await)
 }
 
 #[tauri::command]
