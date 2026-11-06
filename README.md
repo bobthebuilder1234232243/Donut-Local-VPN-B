@@ -29,7 +29,7 @@ Some internet providers inspect the first packet of a connection and block it wh
 
 Donut Local VPN tries a catalogue of known-good settings, checks them against real sites, keeps the first one that works and then watches the connection. When the network changes, the connection breaks or you reconnect to a VPN, it tests again and switches setting on its own.
 
-Thousands of people used the original FreeDPI for this. Donut Local VPN is the same engine with a new name, a new identity and, on macOS and Linux, a real local tunnel instead of a system proxy.
+Donut Local VPN is a local DPI bypass with a real tunnel on macOS and Linux. It runs on Windows, macOS and Linux with no account and no remote server.
 
 ## What "local VPN" means
 
@@ -56,7 +56,7 @@ If you need a different IP address or encryption to a remote server, use a real 
 | macOS | 11 Big Sur or newer, Intel and Apple Silicon | `utun` TUN interface + built-in engine |
 | Linux | 64-bit, `.deb` or AppImage | `/dev/net/tun` + built-in engine |
 
-Windows behaviour is unchanged from FreeDPI: the driver filters packets for every app and needs administrator rights when the app starts.
+On Windows the driver filters packets for every app and needs administrator rights when the app starts.
 
 On macOS and Linux the app creates a TUN interface owned by a short-lived helper process, sets it as the default route for the duration of the connection and runs the same bypass engine behind it:
 
@@ -78,8 +78,6 @@ Grab the file for your platform from [the latest release](https://github.com/bob
 | macOS (universal) | `Donut-Local-VPN_0.2.0_universal.dmg` |
 | Linux (AppImage) | `Donut-Local-VPN_0.2.0_amd64.AppImage` |
 | Linux (Debian/Ubuntu) | `Donut-Local-VPN_0.2.0_amd64.deb` |
-
-The updater downloads `Donut-Local-VPN_universal.app.tar.gz` on macOS and the normal installer on Windows and Linux; you do not need to pick those files by hand.
 
 The builds are not code-signed with an Apple Developer ID or a Windows EV certificate. On macOS, open the `.dmg`, drag the app to Applications and, if Gatekeeper complains, right-click the app and choose **Open** once. On Windows, SmartScreen may ask you to confirm the publisher.
 
@@ -134,9 +132,7 @@ While connected, the app checks the connection periodically. When it breaks — 
 
 ## Updates
 
-Donut Local VPN checks `https://github.com/bobthebuilder1234232243/Donut-Local-VPN-B/releases/latest/download/latest.json` every 30 minutes and whenever the window opens. Updates are signed with the project's own Tauri key and installed in place.
-
-> **Coming from FreeDPI?** You cannot auto-update from FreeDPI to Donut Local VPN. The original releases were signed with a different key, so the updater rejects them by design. Download 0.2.0 from the releases page and install it over your copy; your saved settings are imported automatically from the old `com.freedpi.desktop` configuration directory. After that, updates work normally.
+Donut Local VPN does not install updates by itself. Download the latest installer from [the releases page](https://github.com/bobthebuilder1234232243/Donut-Local-VPN-B/releases/latest) and install it over the current version; your settings are kept.
 
 ## Troubleshooting
 
@@ -159,7 +155,7 @@ Donut Local VPN checks `https://github.com/bobthebuilder1234232243/Donut-Local-V
 ## Privacy
 
 - No account, no sign-up, no telemetry and no analytics.
-- The app contacts the test domains you selected (Discord, YouTube, Roblox, Wattpad, or your own), a DNS-over-HTTPS resolver for lookups inside the tunnel, and GitHub for update checks.
+- The app contacts the test domains you selected (Discord, YouTube, Roblox, Wattpad, or your own) and a DNS-over-HTTPS resolver for lookups inside the tunnel.
 - Diagnostics contain the app version, the current state and recent log lines. They are never uploaded automatically.
 - Traffic content is never inspected, stored or sent anywhere by the app.
 
@@ -194,33 +190,19 @@ docker run --rm --cap-add=NET_ADMIN --device=/dev/net/tun \
 release workflow calls it and depends on it, so installers are only built when the
 tunnel test is green.
 
-To produce signed updater artifacts, set `TAURI_SIGNING_PRIVATE_KEY` and `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` before building. The public key lives in `src-tauri/tauri.conf.json`; the private key is never committed.
-
 ### Project layout
 
 ```
 src/                     UI (TypeScript, no framework)
 src-tauri/src/engine/    DPI bypass engine and proxy
 src-tauri/src/engine/tunnel/   TUN interface, userspace TCP stack, DNS, routes, privileged helper
-src-tauri/src/           app lifecycle, tray, updater, settings
+src-tauri/src/           app lifecycle, tray, settings
 src-tauri/tunnel-harness/  build/test the engine without the GUI stack, plus the privileged TUN test
 src-tauri/resources/     GoodbyeDPI and WinDivert binaries (Windows)
 third_party/             third-party notices
 .github/tunnel-test/     container image for the privileged TUN integration test
-.github/workflows/       release build, signing, update manifest and tunnel test
+.github/workflows/       release build and tunnel test
 ```
-
-## Credits
-
-Donut Local VPN — by Donut VPN. Originally based on FreeDPI by hasanerman.
-
-- Original project: [hasanerman/FreeDPI](https://github.com/hasanerman/FreeDPI)
-- DPI bypass engine: GoodbyeDPI and WinDivert, see [third_party/](third_party/)
-- Tunnel stack: [`tun`](https://crates.io/crates/tun) and [`smoltcp`](https://crates.io/crates/smoltcp)
-
-About screen text:
-
-> Donut Local VPN — By Donut VPN — https://techperson1234.github.io/Donut-VPN/ — Based on FreeDPI by hasanerman (https://github.com/hasanerman/FreeDPI).
 
 ## Disclaimer
 
@@ -228,4 +210,4 @@ Use this only where bypassing network filtering is legal. It does not hide your 
 
 ## License
 
-GPL-3.0. See [LICENSE](LICENSE). The licence and the contents of `third_party/` are unchanged from FreeDPI.
+GPL-3.0. See [LICENSE](LICENSE). The contents of `third_party/` are unchanged.

@@ -7,7 +7,6 @@ use crate::catalog;
 use crate::controller::{Controller, SessionDetails, Status};
 use crate::log::Entry;
 use crate::settings::{Preferences, Settings};
-use crate::updater;
 
 type Ctl<'a> = State<'a, Arc<Controller>>;
 
@@ -26,7 +25,6 @@ pub struct Snapshot {
     targets: Vec<TargetInfo>,
     platform: &'static str,
     version: &'static str,
-    update: Option<updater::Available>,
 }
 
 #[tauri::command]
@@ -36,7 +34,7 @@ pub fn open_repository() -> Result<(), String> {
 
 #[tauri::command]
 pub fn report_issue() -> Result<(), String> {
-    crate::apps::open_url(&format!("{}/issues/new", crate::apps::REPOSITORY))
+    crate::apps::open_url(crate::apps::WEBSITE)
 }
 
 #[tauri::command]
@@ -55,12 +53,7 @@ pub async fn session_stats(controller: Ctl<'_>) -> Result<Option<SessionDetails>
 }
 
 #[tauri::command]
-pub async fn install_update(app: AppHandle) -> Result<(), String> {
-    updater::install(app).await
-}
-
-#[tauri::command]
-pub fn init(language: String, app: AppHandle, controller: Ctl<'_>) -> Snapshot {
+pub fn init(language: String, controller: Ctl<'_>) -> Snapshot {
     controller.detect_language(&language);
     Snapshot {
         status: controller.status(),
@@ -68,7 +61,6 @@ pub fn init(language: String, app: AppHandle, controller: Ctl<'_>) -> Snapshot {
         targets: catalog::TARGETS.iter().map(|t| TargetInfo { id: t.id, name: t.name }).collect(),
         platform: std::env::consts::OS,
         version: env!("CARGO_PKG_VERSION"),
-        update: updater::available(&app),
     }
 }
 

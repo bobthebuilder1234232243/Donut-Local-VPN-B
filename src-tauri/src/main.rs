@@ -14,7 +14,6 @@ mod probe;
 mod settings;
 mod system;
 mod tray;
-mod updater;
 
 use std::sync::Arc;
 
@@ -32,15 +31,12 @@ fn main() {
 
     let app = tauri::Builder::default()
         .plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| tray::show_window(app)))
-        .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_notification::init())
-        .manage(updater::Pending::default())
         .setup(move |app| {
             if let Ok(dir) = app.path().app_log_dir() {
                 log::init(dir);
             }
             log::write(format!("Donut Local VPN {} started on {}", env!("CARGO_PKG_VERSION"), std::env::consts::OS));
-            updater::watch(app.handle().clone());
             let controller = Arc::new(Controller::new(app.handle())?);
             tray::create(app.handle(), &controller.settings())?;
             app.manage(controller.clone());
@@ -78,7 +74,6 @@ fn main() {
             commands::session_stats,
             commands::logs,
             commands::quit,
-            commands::install_update,
             commands::open_repository,
             commands::report_issue,
             commands::diagnostics,

@@ -66,12 +66,6 @@ export interface Snapshot {
   targets: TargetInfo[];
   platform: string;
   version: string;
-  update: UpdateInfo | null;
-}
-
-export interface UpdateInfo {
-  version: string;
-  notes?: string | null;
 }
 
 export interface Backend {
@@ -92,9 +86,7 @@ export interface Backend {
   hide(): Promise<void>;
   onStatus(handler: (status: Status) => void): void;
   onSettings(handler: (settings: Settings) => void): void;
-  installUpdate(): Promise<void>;
   openRepository(): Promise<void>;
   reportIssue(): Promise<void>;
   diagnostics(): Promise<string>;
-  onUpdate(handler: (update: UpdateInfo) => void): void;
 }

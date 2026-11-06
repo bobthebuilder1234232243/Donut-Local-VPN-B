@@ -1,6 +1,6 @@
-pub const REPOSITORY: &str = "https://github.com/bobthebuilder1234232243/Donut-Local-VPN-B";
+pub const WEBSITE: &str = "https://techperson1234.github.io/Donut-VPN/";
 pub fn open_repository() -> Result<(), String> {
-    open_url(REPOSITORY)
+    open_url(WEBSITE)
 }
 
 pub fn open_url(url: &str) -> Result<(), String> {

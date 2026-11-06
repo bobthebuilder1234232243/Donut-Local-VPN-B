@@ -57,11 +57,7 @@ const en = {
   language: "Language",
   languageHint: "Changes the language of the app and the tray menu.",
   quit: "Quit",
-  source: "Source code on GitHub",
-  update: "Version {version} is available",
-  updateAction: "Update",
-  updating: "Updating…",
-  updateError: "Update failed. Try again later.",
+  source: "Donut VPN website",
   autoConnect: "Launch",
   autoConnectToggle: "Connect on launch",
   autoConnectHint:
@@ -113,7 +109,7 @@ const en = {
   reportIssue: "Report a problem",
   about: "About",
   aboutText:
-    "Donut Local VPN — By Donut VPN — https://techperson1234.github.io/Donut-VPN/ — Based on FreeDPI by hasanerman (https://github.com/hasanerman/FreeDPI).",
+    "Donut Local VPN — https://techperson1234.github.io/Donut-VPN/",
 };
 
 type Strings = typeof en;
@@ -175,11 +171,7 @@ const tr: Strings = {
   language: "Dil",
   languageHint: "Uygulamanın ve tepsi menüsünün dilini değiştirir.",
   quit: "Çıkış",
-  source: "GitHub'da kaynak kodu",
-  update: "Yeni sürüm hazır: {version}",
-  updateAction: "Güncelle",
-  updating: "Güncelleniyor…",
-  updateError: "Güncelleme başarısız. Sonra tekrar dene.",
+  source: "Donut VPN web sitesi",
   autoConnect: "Başlatma",
   autoConnectToggle: "Başlatınca bağlan",
   autoConnectHint:
@@ -231,7 +223,7 @@ const tr: Strings = {
   reportIssue: "Sorun bildir",
   about: "Hakkında",
   aboutText:
-    "Donut Local VPN — By Donut VPN — https://techperson1234.github.io/Donut-VPN/ — Based on FreeDPI by hasanerman (https://github.com/hasanerman/FreeDPI).",
+    "Donut Local VPN — https://techperson1234.github.io/Donut-VPN/",
 };
 
 const ru: Strings = {
@@ -291,11 +283,7 @@ const ru: Strings = {
   language: "Язык",
   languageHint: "Меняет язык приложения и меню в трее.",
   quit: "Выйти",
-  source: "Исходный код на GitHub",
-  update: "Доступна версия {version}",
-  updateAction: "Обновить",
-  updating: "Обновление…",
-  updateError: "Не удалось обновить. Попробуйте позже.",
+  source: "Сайт Donut VPN",
   autoConnect: "Запуск",
   autoConnectToggle: "Подключаться при запуске",
   autoConnectHint:
@@ -347,7 +335,7 @@ const ru: Strings = {
   reportIssue: "Сообщить о проблеме",
   about: "О программе",
   aboutText:
-    "Donut Local VPN — By Donut VPN — https://techperson1234.github.io/Donut-VPN/ — Based on FreeDPI by hasanerman (https://github.com/hasanerman/FreeDPI).",
+    "Donut Local VPN — https://techperson1234.github.io/Donut-VPN/",
 };
 
 const es: Strings = {
@@ -407,11 +395,7 @@ const es: Strings = {
   language: "Idioma",
   languageHint: "Cambia el idioma de la aplicación y del menú de la bandeja.",
   quit: "Salir",
-  source: "Código fuente en GitHub",
-  update: "La versión {version} está disponible",
-  updateAction: "Actualizar",
-  updating: "Actualizando…",
-  updateError: "La actualización falló. Inténtalo más tarde.",
+  source: "Sitio web de Donut VPN",
   autoConnect: "Inicio",
   autoConnectToggle: "Conectar al iniciar",
   autoConnectHint:
@@ -463,7 +447,7 @@ const es: Strings = {
   reportIssue: "Informar de un problema",
   about: "Acerca de",
   aboutText:
-    "Donut Local VPN — By Donut VPN — https://techperson1234.github.io/Donut-VPN/ — Based on FreeDPI by hasanerman (https://github.com/hasanerman/FreeDPI).",
+    "Donut Local VPN — https://techperson1234.github.io/Donut-VPN/",
 };
 
 const it: Strings = {
@@ -523,11 +507,7 @@ const it: Strings = {
   language: "Lingua",
   languageHint: "Cambia la lingua dell'app e del menu della barra.",
   quit: "Esci",
-  source: "Codice sorgente su GitHub",
-  update: "La versione {version} è disponibile",
-  updateAction: "Aggiorna",
-  updating: "Aggiornamento…",
-  updateError: "Aggiornamento non riuscito. Riprova più tardi.",
+  source: "Sito web di Donut VPN",
   autoConnect: "Avvio",
   autoConnectToggle: "Connetti all'avvio",
   autoConnectHint:
@@ -579,7 +559,7 @@ const it: Strings = {
   reportIssue: "Segnala un problema",
   about: "Informazioni",
   aboutText:
-    "Donut Local VPN — By Donut VPN — https://techperson1234.github.io/Donut-VPN/ — Based on FreeDPI by hasanerman (https://github.com/hasanerman/FreeDPI).",
+    "Donut Local VPN — https://techperson1234.github.io/Donut-VPN/",
 };
 
 const pl: Strings = {
@@ -639,11 +619,7 @@ const pl: Strings = {
   language: "Język",
   languageHint: "Zmienia język aplikacji i menu w zasobniku.",
   quit: "Zakończ",
-  source: "Kod źródłowy na GitHubie",
-  update: "Dostępna jest wersja {version}",
-  updateAction: "Aktualizuj",
-  updating: "Aktualizowanie…",
-  updateError: "Aktualizacja nie powiodła się. Spróbuj później.",
+  source: "Strona Donut VPN",
   autoConnect: "Uruchamianie",
   autoConnectToggle: "Połącz przy uruchomieniu",
   autoConnectHint:
@@ -695,7 +671,7 @@ const pl: Strings = {
   reportIssue: "Zgłoś problem",
   about: "O programie",
   aboutText:
-    "Donut Local VPN — By Donut VPN — https://techperson1234.github.io/Donut-VPN/ — Based on FreeDPI by hasanerman (https://github.com/hasanerman/FreeDPI).",
+    "Donut Local VPN — https://techperson1234.github.io/Donut-VPN/",
 };
 
 const ko: Strings = {
@@ -755,11 +731,7 @@ const ko: Strings = {
   language: "언어",
   languageHint: "앱과 트레이 메뉴의 언어를 변경합니다.",
   quit: "종료",
-  source: "GitHub의 소스 코드",
-  update: "{version} 버전을 사용할 수 있습니다",
-  updateAction: "업데이트",
-  updating: "업데이트 중…",
-  updateError: "업데이트에 실패했습니다. 나중에 다시 시도하세요.",
+  source: "Donut VPN 웹사이트",
   autoConnect: "시작",
   autoConnectToggle: "시작 시 연결",
   autoConnectHint:
@@ -811,7 +783,7 @@ const ko: Strings = {
   reportIssue: "문제 신고",
   about: "정보",
   aboutText:
-    "Donut Local VPN — By Donut VPN — https://techperson1234.github.io/Donut-VPN/ — Based on FreeDPI by hasanerman (https://github.com/hasanerman/FreeDPI).",
+    "Donut Local VPN — https://techperson1234.github.io/Donut-VPN/",
 };
 
 const zhTW: Strings = {
@@ -871,11 +843,7 @@ const zhTW: Strings = {
   language: "語言",
   languageHint: "變更應用程式與系統匣選單的語言。",
   quit: "結束",
-  source: "GitHub 原始碼",
-  update: "版本 {version} 已推出",
-  updateAction: "更新",
-  updating: "正在更新…",
-  updateError: "更新失敗，請稍後再試。",
+  source: "Donut VPN 網站",
   autoConnect: "啟動",
   autoConnectToggle: "啟動時連線",
   autoConnectHint:
@@ -927,7 +895,7 @@ const zhTW: Strings = {
   reportIssue: "回報問題",
   about: "關於",
   aboutText:
-    "Donut Local VPN — By Donut VPN — https://techperson1234.github.io/Donut-VPN/ — Based on FreeDPI by hasanerman (https://github.com/hasanerman/FreeDPI).",
+    "Donut Local VPN — https://techperson1234.github.io/Donut-VPN/",
 };
 
 const fr: Strings = {
@@ -987,11 +955,7 @@ const fr: Strings = {
   language: "Langue",
   languageHint: "Change la langue de l'application et du menu de la barre.",
   quit: "Quitter",
-  source: "Code source sur GitHub",
-  update: "La version {version} est disponible",
-  updateAction: "Mettre à jour",
-  updating: "Mise à jour…",
-  updateError: "La mise à jour a échoué. Réessayez plus tard.",
+  source: "Site web de Donut VPN",
   autoConnect: "Démarrage",
   autoConnectToggle: "Se connecter au démarrage",
   autoConnectHint:
@@ -1043,7 +1007,7 @@ const fr: Strings = {
   reportIssue: "Signaler un problème",
   about: "À propos",
   aboutText:
-    "Donut Local VPN — By Donut VPN — https://techperson1234.github.io/Donut-VPN/ — Based on FreeDPI by hasanerman (https://github.com/hasanerman/FreeDPI).",
+    "Donut Local VPN — https://techperson1234.github.io/Donut-VPN/",
 };
 
 const dictionaries: Record<Language, Strings> = {

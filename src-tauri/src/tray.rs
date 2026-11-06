@@ -118,5 +118,4 @@ pub fn show_window(app: &AppHandle) {
         let _ = window.show();
         let _ = window.set_focus();
     }
-    crate::updater::check_soon(app);
 }

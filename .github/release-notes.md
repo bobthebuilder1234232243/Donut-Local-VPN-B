@@ -1,10 +1,5 @@
 ## Donut Local VPN {{version}}
 
-**The update signing key changed.** If you are still on FreeDPI, you cannot update automatically: the
-old releases were signed with a different key, so the updater rejects them by design. Download the
-installer below and run it once — your saved settings are imported from the old
-`com.freedpi.desktop` folder. After that, updates arrive normally.
-
 ### What's new
 
 - **New name and identity.** Donut Local VPN, identifier `com.donutvpn.donutlocalvpn`, new icons, new
@@ -35,6 +30,7 @@ The builds are not code-signed. On macOS, right-click the app and choose **Open*
 
 ### Notes
 
+- Updates are installed manually by running the new installer; the app does not check for updates.
 - On macOS and Linux the tunnel carries TCP and DNS. Other UDP traffic (QUIC, some games and voice
   chat) and ICMP bypass the tunnel and may still be blocked.
 - "Local VPN" means the interface is on your computer. There is no remote server and no added

@@ -94,7 +94,6 @@ export function mockBackend(): Backend {
         ],
         platform: params.get("platform") ?? "linux",
         version: pkg.version,
-        update: params.get("update") !== null ? { version: "0.2.0", notes: "- Faster connection after sleep\n- Diagnostics button" } : null,
       };
     },
     async connect() {
@@ -158,18 +157,14 @@ export function mockBackend(): Backend {
     onSettings(handler) {
       settingsHandlers.push(handler);
     },
-    async installUpdate() {
-      await new Promise((resolve) => window.setTimeout(resolve, 1500));
-    },
-    onUpdate() {},
     async reportIssue() {
-      window.open("https://github.com/bobthebuilder1234232243/Donut-Local-VPN-B/issues/new", "_blank");
+      window.open("https://techperson1234.github.io/Donut-VPN/", "_blank");
     },
     async diagnostics() {
       return `Donut Local VPN ${pkg.version}\nstatus: ${status.phase}`;
     },
     async openRepository() {
-      window.open("https://github.com/bobthebuilder1234232243/Donut-Local-VPN-B", "_blank");
+      window.open("https://techperson1234.github.io/Donut-VPN/", "_blank");
     },
   };
 }

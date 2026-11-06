@@ -1,6 +1,6 @@
 import { createBackend } from "./api";
 import { format, languages, resolveLanguage, strings } from "./i18n";
-import type { Backend, Language, LogEntry, Preferences, Region, SessionStats, Settings, Snapshot, Status, UpdateInfo } from "./types";
+import type { Backend, Language, LogEntry, Preferences, Region, SessionStats, Settings, Snapshot, Status } from "./types";
 
 const REGIONS: Region[] = ["auto", "turkey", "russia", "other"];
 const THEMES = ["system", "light", "dark"] as const;
@@ -62,10 +62,6 @@ const ui = {
   addButton: byId<HTMLButtonElement>("btn-add"),
   version: byId("version"),
   quit: byId<HTMLButtonElement>("btn-quit"),
-  update: byId("update"),
-  updateText: byId("update-text"),
-  updateButton: byId<HTMLButtonElement>("btn-update"),
-  updateNotes: byId("update-notes"),
   helpTitle: byId("lbl-help"),
   helpHint: byId("lbl-help-hint"),
   diagnostics: byId<HTMLButtonElement>("btn-diagnostics"),
@@ -135,8 +131,6 @@ let backend: Backend;
 let snapshot: Snapshot;
 let status: Status;
 let settings: Settings;
-let update: UpdateInfo | null = null;
-let updating = false;
 let flashMessage = "";
 let flashTimer: number | undefined;
 let stats: SessionStats | null = null;
@@ -494,22 +488,9 @@ function watchLogs(active: boolean) {
   logsTimer = window.setInterval(() => void refreshLogs(), 2000);
 }
 
-function renderUpdate() {
-  const s = text();
-  ui.update.hidden = update === null;
-  if (!update) return;
-  ui.updateText.textContent = updating ? s.updating : format(s.update, { version: update.version });
-  ui.updateButton.textContent = s.updateAction;
-  ui.updateButton.hidden = updating;
-  const notes = update.notes?.trim() ?? "";
-  ui.updateNotes.textContent = notes;
-  ui.updateNotes.hidden = notes === "" || updating;
-}
-
 function render() {
   renderSettings();
   renderStatus();
-  renderUpdate();
 }
 
 function flash(message: string) {
@@ -537,19 +518,6 @@ async function save(change: Partial<Preferences>) {
 async function changeLanguage(next: Language) {
   settings = await backend.setLanguage(next);
   render();
-}
-
-async function installUpdate() {
-  updating = true;
-  renderUpdate();
-  try {
-    await backend.installUpdate();
-  } catch {
-    updating = false;
-    update = null;
-    renderUpdate();
-    flash(text().updateError);
-  }
 }
 
 function normalizeDomain(input: string): string | null {
@@ -651,7 +619,6 @@ function bind() {
   ui.back.addEventListener("click", () => openSheet(false));
   ui.hide.addEventListener("click", () => void backend.hide());
   ui.quit.addEventListener("click", () => void backend.quit());
-  ui.updateButton.addEventListener("click", () => void installUpdate());
 
   ui.addForm.addEventListener("submit", (event) => {
     event.preventDefault();
@@ -680,7 +647,6 @@ async function boot() {
   snapshot = await backend.init(navigator.language);
   status = snapshot.status;
   settings = snapshot.settings;
-  update = snapshot.update;
   document.documentElement.dataset.platform = snapshot.platform;
 
   backend.onStatus((next) => {
@@ -691,11 +657,6 @@ async function boot() {
     settings = next;
     renderSettings();
     renderStatus();
-    renderUpdate();
-  });
-  backend.onUpdate((next) => {
-    update = next;
-    renderUpdate();
   });
 
   bind();
