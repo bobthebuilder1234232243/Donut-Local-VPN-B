@@ -60,7 +60,6 @@ const ui = {
   addForm: byId<HTMLFormElement>("add-form"),
   addInput: byId<HTMLInputElement>("add-input"),
   addButton: byId<HTMLButtonElement>("btn-add"),
-  version: byId("version"),
   quit: byId<HTMLButtonElement>("btn-quit"),
   helpTitle: byId("lbl-help"),
   helpHint: byId("lbl-help-hint"),
@@ -397,8 +396,8 @@ function renderSettings() {
   ui.addInput.placeholder = s.addPlaceholder;
   ui.addButton.title = s.addSite;
   ui.addButton.setAttribute("aria-label", s.addSite);
-  ui.version.textContent = `Donut Local VPN ${snapshot.version}`;
   ui.source.title = s.source;
+  ui.source.setAttribute("aria-label", s.source);
   ui.quit.textContent = s.quit;
   ui.helpTitle.textContent = s.help;
   ui.helpHint.textContent = s.helpHint;

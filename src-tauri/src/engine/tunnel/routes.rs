@@ -3,8 +3,9 @@
 //! Everything here runs inside the privileged helper, so the commands are
 //! executed as root. The default route is replaced by two /1 routes pointing at
 //! the TUN interface; the original default route stays in place and is used for
-//! the DNS over HTTPS endpoints the proxy needs, which are pinned with /32 host
-//! routes so they never loop back into the tunnel.
+//! the DNS over HTTPS endpoints the proxy needs when the DPI bypass is on. Those
+//! endpoints are pinned with /32 host routes so they never loop back into the
+//! tunnel.
 
 use std::net::IpAddr;
 use std::path::Path;
@@ -103,8 +104,9 @@ pub fn physical() -> Physical {
     }
 }
 
-/// Bring the interface up and send all traffic through it.
-pub fn enable(tun: &str) -> Result<(), String> {
+/// Bring the interface up and send all traffic through it. The DoH endpoint
+/// routes are only needed when the DPI bypass resolver is active.
+pub fn enable(tun: &str, dpi: bool) -> Result<(), String> {
     #[cfg(target_os = "linux")]
     {
         let ip = ip_tool();
@@ -116,14 +118,16 @@ pub fn enable(tun: &str) -> Result<(), String> {
         let _ = run(&ip, &["-6", "route", "replace", "::/1", "dev", tun, "metric", METRIC]);
         let _ = run(&ip, &["-6", "route", "replace", "8000::/1", "dev", tun, "metric", METRIC]);
 
-        let physical = physical();
-        if let (Some(gateway), Some(interface)) = (physical.gateway, physical.interface) {
-            for endpoint in DNS_ENDPOINTS {
-                let route = format!("{endpoint}/32");
-                let _ = run(
-                    &ip,
-                    &["route", "replace", &route, "via", &gateway, "dev", &interface, "metric", METRIC],
-                );
+        if dpi {
+            let physical = physical();
+            if let (Some(gateway), Some(interface)) = (physical.gateway, physical.interface) {
+                for endpoint in DNS_ENDPOINTS {
+                    let route = format!("{endpoint}/32");
+                    let _ = run(
+                        &ip,
+                        &["route", "replace", &route, "via", &gateway, "dev", &interface, "metric", METRIC],
+                    );
+                }
             }
         }
         Ok(())
@@ -148,13 +152,15 @@ pub fn enable(tun: &str) -> Result<(), String> {
             }
         }
 
-        if let Some(gateway) = physical().gateway {
-            for endpoint in DNS_ENDPOINTS {
-                if endpoint.parse::<IpAddr>().is_err() {
-                    continue;
+        if dpi {
+            if let Some(gateway) = physical().gateway {
+                for endpoint in DNS_ENDPOINTS {
+                    if endpoint.parse::<IpAddr>().is_err() {
+                        continue;
+                    }
+                    let _ = run(&route, &["-n", "delete", "-host", endpoint]);
+                    let _ = run(&route, &["-n", "add", "-host", endpoint, &gateway]);
                 }
-                let _ = run(&route, &["-n", "delete", "-host", endpoint]);
-                let _ = run(&route, &["-n", "add", "-host", endpoint, &gateway]);
             }
         }
         Ok(())
@@ -162,7 +168,7 @@ pub fn enable(tun: &str) -> Result<(), String> {
 
     #[cfg(not(any(target_os = "linux", target_os = "macos")))]
     {
-        let _ = tun;
+        let _ = (tun, dpi);
         Err("unsupported platform".into())
     }
 }

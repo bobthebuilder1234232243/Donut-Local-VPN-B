@@ -155,7 +155,8 @@ async fn serve(args: Args) -> Result<(), String> {
         match line.trim() {
             "up" => {
                 let tun = name.clone();
-                match tokio::task::spawn_blocking(move || routes::enable(&tun)).await {
+                let dpi = args.dpi;
+                match tokio::task::spawn_blocking(move || routes::enable(&tun, dpi)).await {
                     Ok(Ok(())) => {
                         let _ = writer.write_all(b"ok\n").await;
                     }

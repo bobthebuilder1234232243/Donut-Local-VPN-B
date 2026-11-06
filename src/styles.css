@@ -806,11 +806,11 @@ body.ready .app {
   color: var(--text);
 }
 
-.github {
+.donut {
   width: 18px;
   height: 18px;
-  fill: var(--text);
-  stroke: none;
+  border-radius: 50%;
+  object-fit: contain;
 }
 
 .text-btn {

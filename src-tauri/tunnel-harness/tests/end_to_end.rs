@@ -155,7 +155,7 @@ async fn tunnel_carries_real_traffic_and_tears_down_cleanly() {
         counters.clone(),
     ));
 
-    routes::enable(&name).expect("enable routes");
+    routes::enable(&name, dpi).expect("enable routes");
 
     // Linux shows a point-to-point interface as `10.66.0.1 peer 10.66.0.2/32`,
     // so only the address itself is stable across `ip` versions.
